@@ -1,3 +1,4 @@
+import { Text, View } from "react-native";
 import type { CurrentWeatherResponse, WeatherForecast } from "../api/weather";
 import { useSettings } from "../context/SettingsContext";
 import { useTranslation } from "../i18n/useTranslation";
@@ -18,14 +19,18 @@ export function WeatherHero({ data, todayForecast, isLoading }: Props) {
 
   if (isLoading) {
     return (
-      <div className="px-5 pt-10 pb-6 text-center">
-        <div className="mx-auto h-24 w-40 animate-pulse rounded-2xl bg-white/10" />
-      </div>
+      <View className="items-center px-5 pb-6 pt-10">
+        <View className="h-24 w-40 rounded-2xl bg-white/10" />
+      </View>
     );
   }
 
   if (reading?.temperature == null) {
-    return <div className="px-5 pt-10 pb-6 text-center text-sm opacity-60">{t("hero.noReading")}</div>;
+    return (
+      <View className="px-5 pb-6 pt-10">
+        <Text className="text-center text-sm text-white/60">{t("hero.noReading")}</Text>
+      </View>
+    );
   }
 
   const minMax =
@@ -39,24 +44,29 @@ export function WeatherHero({ data, todayForecast, isLoading }: Props) {
   ].filter(Boolean);
 
   return (
-    <div className="px-5 pt-8 pb-6 text-center">
-      <div className="flex items-center justify-center gap-3">
-        <Icon className="h-12 w-12 opacity-90" />
-        <span className="text-8xl font-light tabular-nums">{formatTemp(reading.temperature, unit)}</span>
-      </div>
+    <View className="px-5 pb-6 pt-8">
+      <View className="flex-row items-center justify-center gap-3">
+        {/* conditionToIcon always returns one of a fixed set of already-defined icon
+         * components, never a genuinely new one — react-hooks/static-components can't tell
+         * that apart from actually creating a component during render, so this is a known
+         * false positive for the "pick an icon by condition string" pattern. */}
+        {/* eslint-disable-next-line react-hooks/static-components */}
+        <Icon size={48} color="rgba(255,255,255,0.9)" />
+        <Text className="text-8xl font-light text-white">{formatTemp(reading.temperature, unit)}</Text>
+      </View>
 
-      <div className="mt-3 text-base font-medium">
+      <Text className="mt-3 text-center text-base font-medium text-white">
         {translateCondition(reading.condition)}
-        {minMax && <span className="ml-1.5 opacity-80">{minMax}</span>}
-      </div>
+        {minMax && <Text className="text-white/80"> {minMax}</Text>}
+      </Text>
 
       {(reading.feelsLike != null || windParts.length > 0) && (
-        <div className="mt-1 text-sm opacity-60">
+        <Text className="mt-1 text-center text-sm text-white/60">
           {reading.feelsLike != null && t("hero.feelsLike", { temp: formatTemp(reading.feelsLike, unit) })}
           {reading.feelsLike != null && windParts.length > 0 && "  "}
           {windParts.join(", ")}
-        </div>
+        </Text>
       )}
-    </div>
+    </View>
   );
 }

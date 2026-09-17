@@ -1,21 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { LogOut } from "lucide-react-native";
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { LogOut } from "../assets/icons";
+import { Pressable, Text, View } from "react-native";
 import { fetchProvinces } from "../api/geo";
 import { updateFavoriteProvince } from "../api/users";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
-import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useTranslation } from "../i18n/useTranslation";
 import { localizedName } from "../lib/localizedName";
+import { SelectSheet } from "./SelectSheet";
 
 export function AccountPanel({ onClose }: { onClose: () => void }) {
   const { user, logout, setUser } = useAuth();
   const { language } = useSettings();
   const { t } = useTranslation();
-  const { status: pushStatus, subscribe, unsubscribe } = usePushNotifications();
+  const router = useRouter();
   const [savingProvince, setSavingProvince] = useState(false);
+  const [provinceSheetOpen, setProvinceSheetOpen] = useState(false);
   const { data: provinces = [] } = useQuery({
     queryKey: ["geo", "provinces"],
     queryFn: fetchProvinces,
@@ -23,90 +25,86 @@ export function AccountPanel({ onClose }: { onClose: () => void }) {
   });
 
   if (user) {
-    const notifyEnabled = pushStatus === "subscribed";
+    const selectedProvince = provinces.find((p) => p.id === user.favoriteProvinceId);
 
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-sm opacity-70">{t("account.signedInAs", { email: user.email })}</p>
+      <View className="gap-4">
+        <Text className="text-sm text-white/70">{t("account.signedInAs", { email: user.email })}</Text>
 
-        <div>
-          <label className="mb-1 block text-xs opacity-60">{t("account.alertMeIn")}</label>
-          <select
-            className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-50"
-            value={user.favoriteProvinceId ?? ""}
+        <View>
+          <Text className="mb-1 text-xs text-white/60">{t("account.alertMeIn")}</Text>
+          <Pressable
             disabled={savingProvince}
-            onChange={async (e) => {
-              const favoriteProvinceId = e.target.value || null;
-              setSavingProvince(true);
-              try {
-                const updated = await updateFavoriteProvince(favoriteProvinceId);
-                setUser(updated);
-              } finally {
-                setSavingProvince(false);
-              }
-            }}
+            onPress={() => setProvinceSheetOpen(true)}
+            className="rounded-xl bg-white/10 px-3 py-2.5 disabled:opacity-50"
           >
-            <option value="">{t("account.notSet")}</option>
-            {provinces.map((p) => (
-              <option key={p.id} value={p.id} className="text-black">
-                {localizedName(p, language)}
-              </option>
-            ))}
-          </select>
-        </div>
+            <Text className="text-sm text-white">
+              {selectedProvince ? localizedName(selectedProvince, language) : t("account.notSet")}
+            </Text>
+          </Pressable>
+        </View>
 
-        {pushStatus !== "unsupported" && (
-          <button
-            onClick={() => (notifyEnabled ? unsubscribe() : subscribe())}
-            disabled={!user.favoriteProvinceId || pushStatus === "checking" || pushStatus === "denied"}
-            className="flex items-center justify-between rounded-xl bg-white/10 px-4 py-2.5 text-sm transition hover:bg-white/15 disabled:opacity-50"
-          >
-            <span>{t("account.notify")}</span>
-            <span
-              className={`h-5 w-9 rounded-full transition ${notifyEnabled ? "bg-sky-400" : "bg-white/20"}`}
-            >
-              <span
-                className={`block h-5 w-5 rounded-full bg-white transition ${notifyEnabled ? "translate-x-4" : ""}`}
-              />
-            </span>
-          </button>
-        )}
-        {pushStatus === "denied" && <p className="text-xs opacity-60">{t("account.notifyBlocked")}</p>}
-        {pushStatus !== "denied" && !user.favoriteProvinceId && (
-          <p className="text-xs opacity-60">{t("account.pickProvinceFirst")}</p>
-        )}
+        {/* Push notifications are deferred — the old Web Push/VAPID flow has no RN equivalent.
+         * A future pass swaps this for expo-notifications and re-enables the toggle. */}
+        <View className="rounded-xl bg-white/10 px-4 py-3">
+          <Text className="text-sm font-medium text-white/50">{t("account.notify")}</Text>
+          <Text className="mt-1 text-xs text-white/40">{t("account.comingSoon")}</Text>
+        </View>
 
-        <button
-          onClick={() => {
+        <Pressable
+          onPress={() => {
             logout();
             onClose();
           }}
-          className="flex items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5 text-sm font-medium transition hover:bg-white/15"
+          className="flex-row items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5"
         >
-          <LogOut className="h-4 w-4" />
-          {t("account.logOut")}
-        </button>
-      </div>
+          <LogOut size={16} color="white" />
+          <Text className="text-sm font-medium text-white">{t("account.logOut")}</Text>
+        </Pressable>
+
+        <SelectSheet
+          open={provinceSheetOpen}
+          onClose={() => setProvinceSheetOpen(false)}
+          title={t("account.alertMeIn")}
+          options={provinces.map((p) => ({ value: p.id, label: localizedName(p, language) }))}
+          value={user.favoriteProvinceId}
+          onChange={async (favoriteProvinceId) => {
+            setSavingProvince(true);
+            try {
+              const updated = await updateFavoriteProvince(favoriteProvinceId);
+              setUser(updated);
+            } finally {
+              setSavingProvince(false);
+            }
+          }}
+          nullable
+          nullLabel={t("account.notSet")}
+        />
+      </View>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm opacity-70">{t("account.signInPrompt")}</p>
-      <Link
-        to="/login"
-        onClick={onClose}
-        className="rounded-xl bg-sky-400/80 py-2.5 text-center text-sm font-medium text-slate-900 transition hover:bg-sky-400"
+    <View className="gap-3">
+      <Text className="text-sm text-white/70">{t("account.signInPrompt")}</Text>
+      <Pressable
+        onPress={() => {
+          onClose();
+          router.push("/login");
+        }}
+        className="rounded-xl bg-sky-400/80 py-2.5"
       >
-        {t("account.signIn")}
-      </Link>
-      <Link
-        to="/register"
-        onClick={onClose}
-        className="rounded-xl bg-white/10 py-2.5 text-center text-sm font-medium transition hover:bg-white/15"
+        <Text className="text-center text-sm font-medium text-slate-900">{t("account.signIn")}</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          onClose();
+          router.push("/register");
+        }}
+        className="rounded-xl bg-white/10 py-2.5"
       >
-        {t("account.createAccount")}
-      </Link>
-    </div>
+        <Text className="text-center text-sm font-medium text-white">{t("account.createAccount")}</Text>
+      </Pressable>
+    </View>
   );
 }

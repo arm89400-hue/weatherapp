@@ -1,14 +1,15 @@
 import axios from "axios";
+import * as SecureStore from "expo-secure-store";
 
-// Empty by default: nginx (see frontend/nginx.conf) proxies /api and /socket.io to the
-// backend, so relative URLs work from whatever host/IP loaded the page — no need to know the
-// backend's address at build time. Set VITE_API_URL only for local (non-Docker) dev, where
-// the Vite dev server and backend run as genuinely separate origins.
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+// Native apps have no browser cookie jar, so unlike the old web app there's no httpOnly
+// refresh cookie — the refresh token travels in the request/response body instead and is
+// persisted here via SecureStore. EXPO_PUBLIC_API_URL must point at the backend's LAN IP (or a
+// tunnel) since there's no same-origin nginx proxy to fall back to on a physical device.
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
+export const REFRESH_TOKEN_KEY = "auth.refreshToken";
 
 export const apiClient = axios.create({
   baseURL: `${API_URL}/api`,
-  withCredentials: true, // send the httpOnly refresh-token cookie
 });
 
 let accessToken: string | null = null;
@@ -43,7 +44,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       try {
-        refreshInFlight ??= refreshAccessToken();
+        refreshInFlight ??= refreshAccessToken().then((r) => r.accessToken);
         const newToken = await refreshInFlight;
         refreshInFlight = null;
         original.headers.Authorization = `Bearer ${newToken}`;
@@ -58,14 +59,17 @@ apiClient.interceptors.response.use(
   }
 );
 
-async function refreshAccessToken(): Promise<string> {
-  const res = await axios.post(
-    `${API_URL}/api/auth/refresh`,
-    {},
-    { withCredentials: true }
-  );
-  const token = res.data.accessToken as string;
-  setAccessToken(token);
-  onTokenRefreshed?.(token);
-  return token;
+export async function refreshAccessToken(): Promise<{ accessToken: string; user: unknown }> {
+  const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  if (!refreshToken) throw new Error("No refresh token stored");
+
+  const res = await axios.post(`${API_URL}/api/auth/refresh`, { refreshToken });
+
+  // The backend's refreshSession() revokes the old refresh token and issues a new one on every
+  // single call — the rotated token MUST be re-persisted here, or the very next refresh attempt
+  // fails outright (old token already revoked, new one never saved).
+  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, res.data.refreshToken);
+  setAccessToken(res.data.accessToken);
+  onTokenRefreshed?.(res.data.accessToken);
+  return { accessToken: res.data.accessToken, user: res.data.user };
 }

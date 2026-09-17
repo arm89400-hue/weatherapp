@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { LocateFixed } from "../assets/icons";
-import type { LocationStatus } from "../hooks/useDeviceLocationProvince";
+import { LocateFixed } from "lucide-react-native";
+import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import { fetchDistricts, fetchProvinces } from "../api/geo";
 import { useSettings } from "../context/SettingsContext";
+import type { LocationStatus } from "../hooks/useDeviceLocationProvince";
 import { useTranslation } from "../i18n/useTranslation";
 import { localizedName } from "../lib/localizedName";
+import { SelectSheet } from "./SelectSheet";
 
 type Props = {
   provinceId: string | null;
@@ -16,7 +19,8 @@ type Props = {
 };
 
 /** Full-width picker rendered inside a bottom sheet (see Sheet.tsx) — stacked, not squeezed
- * into the header, so it never overflows on narrow screens. */
+ * into the header, so it never overflows on narrow screens. Both selects from the old web
+ * `<select>` become taps that open a SelectSheet. */
 export function LocationPicker({
   provinceId,
   districtId,
@@ -33,56 +37,69 @@ export function LocationPicker({
     queryFn: () => fetchDistricts(provinceId as string),
     enabled: !!provinceId,
   });
+  const [provinceSheetOpen, setProvinceSheetOpen] = useState(false);
+  const [districtSheetOpen, setDistrictSheetOpen] = useState(false);
+
+  const selectedProvince = provinces.find((p) => p.id === provinceId);
+  const selectedDistrict = districts.find((d) => d.id === districtId);
 
   return (
-    <div className="flex flex-col gap-4">
-      <button
-        onClick={onUseMyLocation}
+    <View className="gap-4">
+      <Pressable
+        onPress={onUseMyLocation}
         disabled={locationStatus === "locating"}
-        className="flex items-center justify-center gap-2 rounded-xl bg-sky-400/80 py-2.5 text-sm font-medium text-slate-900 transition hover:bg-sky-400 disabled:opacity-60"
+        className="flex-row items-center justify-center gap-2 rounded-xl bg-sky-400/80 py-2.5 disabled:opacity-60"
       >
-        <LocateFixed className={`h-4 w-4 ${locationStatus === "locating" ? "animate-pulse" : ""}`} />
-        {locationStatus === "locating" ? t("locationPicker.locating") : t("locationPicker.useCurrentLocation")}
-      </button>
+        <LocateFixed size={16} color="#0f172a" />
+        <Text className="text-sm font-medium text-slate-900">
+          {locationStatus === "locating" ? t("locationPicker.locating") : t("locationPicker.useCurrentLocation")}
+        </Text>
+      </Pressable>
 
-      <div>
-        <label className="mb-1 block text-xs opacity-60">{t("locationPicker.province")}</label>
-        <select
-          className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
-          value={provinceId ?? ""}
-          onChange={(e) => {
-            onChangeProvince(e.target.value);
-            onChangeDistrict(null);
-          }}
-        >
-          <option value="" disabled>
-            {t("locationPicker.selectProvince")}
-          </option>
-          {provinces.map((p) => (
-            <option key={p.id} value={p.id} className="text-black">
-              {localizedName(p, language)}
-            </option>
-          ))}
-        </select>
-      </div>
+      <View>
+        <Text className="mb-1 text-xs text-white/60">{t("locationPicker.province")}</Text>
+        <Pressable onPress={() => setProvinceSheetOpen(true)} className="rounded-xl bg-white/10 px-3 py-2.5">
+          <Text className="text-sm text-white">
+            {selectedProvince ? localizedName(selectedProvince, language) : t("locationPicker.selectProvince")}
+          </Text>
+        </Pressable>
+      </View>
 
       {provinceId && districts.length > 0 && (
-        <div>
-          <label className="mb-1 block text-xs opacity-60">{t("locationPicker.district")}</label>
-          <select
-            className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-sm text-white outline-none"
-            value={districtId ?? ""}
-            onChange={(e) => onChangeDistrict(e.target.value || null)}
-          >
-            <option value="">{t("locationPicker.allDistricts")}</option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.id} className="text-black">
-                {localizedName(d, language)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <View>
+          <Text className="mb-1 text-xs text-white/60">{t("locationPicker.district")}</Text>
+          <Pressable onPress={() => setDistrictSheetOpen(true)} className="rounded-xl bg-white/10 px-3 py-2.5">
+            <Text className="text-sm text-white">
+              {selectedDistrict ? localizedName(selectedDistrict, language) : t("locationPicker.allDistricts")}
+            </Text>
+          </Pressable>
+        </View>
       )}
-    </div>
+
+      <SelectSheet
+        open={provinceSheetOpen}
+        onClose={() => setProvinceSheetOpen(false)}
+        title={t("locationPicker.selectProvince")}
+        options={provinces.map((p) => ({ value: p.id, label: localizedName(p, language) }))}
+        value={provinceId}
+        onChange={(id) => {
+          if (id) {
+            onChangeProvince(id);
+            onChangeDistrict(null);
+          }
+        }}
+      />
+
+      <SelectSheet
+        open={districtSheetOpen}
+        onClose={() => setDistrictSheetOpen(false)}
+        title={t("locationPicker.district")}
+        options={districts.map((d) => ({ value: d.id, label: localizedName(d, language) }))}
+        value={districtId}
+        onChange={onChangeDistrict}
+        nullable
+        nullLabel={t("locationPicker.allDistricts")}
+      />
+    </View>
   );
 }

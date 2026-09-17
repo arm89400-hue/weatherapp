@@ -5,10 +5,9 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useNetworkType } from "./useNetworkType";
 
-// undefined (not a URL) means "connect to whatever origin served this page" — socket.io-client
-// treats that as same-origin, matching the /socket.io proxy in frontend/nginx.conf. Set
-// VITE_API_URL only for local (non-Docker) dev, where frontend/backend are separate origins.
-const SOCKET_URL = import.meta.env.VITE_API_URL || undefined;
+// Unlike the old web app (same-origin, proxied by nginx), a native client has no page origin to
+// fall back to — EXPO_PUBLIC_API_URL must be set to the backend's reachable address.
+const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type WeatherUpdatedEvent = { provinceId: string; stationId: string; kind: "reading" | "forecast" };
 
@@ -20,9 +19,8 @@ export function useWeatherSocket(provinceId: string | null) {
   const queryClient = useQueryClient();
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Network type is only ever known on Chromium (Android WebView/Chrome); everywhere else
-  // (Safari/iOS) it reports "unknown" and we fail open rather than disabling live updates for a
-  // toggle those users could never have meaningfully set.
+  // Network type is "unknown" until NetInfo resolves; we fail open (treat as "not cellular")
+  // rather than briefly disabling live updates for everyone on every cold start.
   const liveUpdatesAllowed = updateOnMobileData || networkType !== "cellular";
 
   useEffect(() => {

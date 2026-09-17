@@ -37,7 +37,7 @@ authRouter.post("/register", async (req, res, next) => {
     const { email, password, name } = registerSchema.parse(req.body);
     const { accessToken, refreshToken, user } = await registerUser(email, password, name);
     res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions);
-    res.status(201).json({ accessToken, user });
+    res.status(201).json({ accessToken, refreshToken, user });
   } catch (err) {
     next(err);
   }
@@ -48,7 +48,7 @@ authRouter.post("/login", async (req, res, next) => {
     const { email, password } = loginSchema.parse(req.body);
     const { accessToken, refreshToken, user } = await loginUser(email, password);
     res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions);
-    res.json({ accessToken, user });
+    res.json({ accessToken, refreshToken, user });
   } catch (err) {
     next(err);
   }
@@ -56,12 +56,12 @@ authRouter.post("/login", async (req, res, next) => {
 
 authRouter.post("/refresh", async (req, res, next) => {
   try {
-    const token = req.cookies?.[REFRESH_COOKIE];
+    const token = req.body?.refreshToken || req.cookies?.[REFRESH_COOKIE];
     if (!token) throw new AuthError("Missing refresh token");
 
     const { accessToken, refreshToken, user } = await refreshSession(token);
     res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions);
-    res.json({ accessToken, user });
+    res.json({ accessToken, refreshToken, user });
   } catch (err) {
     next(err);
   }
@@ -69,7 +69,7 @@ authRouter.post("/refresh", async (req, res, next) => {
 
 authRouter.post("/logout", async (req, res, next) => {
   try {
-    const token = req.cookies?.[REFRESH_COOKIE];
+    const token = req.body?.refreshToken || req.cookies?.[REFRESH_COOKIE];
     if (token) {
       await revokeRefreshToken(token);
     }

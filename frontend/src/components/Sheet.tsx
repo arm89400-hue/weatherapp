@@ -1,40 +1,36 @@
-import { X } from "../assets/icons";
+import { X } from "lucide-react-native";
 import type { ReactNode } from "react";
+import { Modal, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "../i18n/useTranslation";
+import { GlassCard } from "./GlassCard";
+import { ModalBackdrop } from "./ModalBackdrop";
 
-type Props = {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-};
+type Props = { open: boolean; onClose: () => void; title: string; children: ReactNode };
 
 export function Sheet({ open, onClose, title, children }: Props) {
   const { t } = useTranslation();
-  if (!open) return null;
+  const insets = useSafeAreaInsets();
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="glass-card w-full max-w-md rounded-t-3xl p-5"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 opacity-70 transition hover:bg-white/10 hover:opacity-100"
-            aria-label={t("common.close")}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <ModalBackdrop onPress={onClose}>
+        {/* Not a Pressable: RN's touch responder system doesn't bubble taps from a nested
+         * View to an ancestor Pressable the way DOM clicks bubble, so no stopPropagation
+         * equivalent is needed here to keep taps on the panel from closing the sheet. */}
+        <GlassCard
+          className="w-full rounded-t-3xl p-5"
+          style={{ paddingBottom: insets.bottom + 24 }}
+        >
+          <View className="mb-4 flex-row items-center justify-between">
+            <Text className="text-base font-semibold text-white">{title}</Text>
+            <Pressable onPress={onClose} accessibilityLabel={t("common.close")} className="rounded-full p-1.5">
+              <X size={16} color="white" />
+            </Pressable>
+          </View>
+          {children}
+        </GlassCard>
+      </ModalBackdrop>
+    </Modal>
   );
 }

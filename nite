@@ -1,8 +1,0 @@
-1 I want an application
-2 I want the app to be weather report with login register and realtime data
-3 I want to have all province of thailand and cities
-4 Make plan of Structure
-5 data is from this https://www.tmd.go.th/service/serviceData
-6 Data API -> My data base -> Pull and use in my app (similar to air-flow)
-7 React as front and Node as Back Prisma for data base docker for test sever 
-8 I'll provide UI by picture later 

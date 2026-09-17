@@ -1,11 +1,6 @@
-import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSun, Sun } from "../assets/icons";
-import type { ComponentType } from "react";
+import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSun, Sun, type LucideIcon } from "lucide-react-native";
 
-type IconProps = { className?: string };
-
-/** Best-effort mapping from TMD's free-text condition string to an icon; exact TMD wording is
- * unverified (see ingestion/tmdClient.ts), so this matches broadly by keyword. */
-export function conditionToIcon(condition?: string | null): ComponentType<IconProps> {
+export function conditionToIcon(condition?: string | null): LucideIcon {
   const c = (condition ?? "").toLowerCase();
   if (c.includes("storm") || c.includes("thunder")) return CloudLightning;
   if (c.includes("drizzl")) return CloudDrizzle;

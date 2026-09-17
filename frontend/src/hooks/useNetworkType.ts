@@ -1,28 +1,20 @@
+import NetInfo from "@react-native-community/netinfo";
 import { useEffect, useState } from "react";
 
 type NetworkType = "wifi" | "cellular" | "unknown";
 
-// The Network Information API (navigator.connection) only exists on Chromium — Android WebView
-// (this app's Capacitor target) and desktop Chrome support it, Safari/iOS never returns it. When
-// it's missing we report "unknown" and callers should fail open (treat as "not cellular") rather
-// than silently disabling a feature Safari users could never have toggled anyway.
-function detect(): NetworkType {
-  const conn = (navigator as unknown as { connection?: { type?: string } }).connection;
-  if (!conn?.type) return "unknown";
-  if (conn.type === "wifi" || conn.type === "ethernet") return "wifi";
-  if (conn.type === "cellular") return "cellular";
+function mapType(type: string | null | undefined): NetworkType {
+  if (type === "wifi" || type === "ethernet") return "wifi";
+  if (type === "cellular") return "cellular";
   return "unknown";
 }
 
 export function useNetworkType(): NetworkType {
-  const [type, setType] = useState<NetworkType>(detect);
+  const [type, setType] = useState<NetworkType>("unknown");
 
   useEffect(() => {
-    const conn = (navigator as unknown as { connection?: EventTarget }).connection;
-    if (!conn) return;
-    const handler = () => setType(detect());
-    conn.addEventListener("change", handler);
-    return () => conn.removeEventListener("change", handler);
+    NetInfo.fetch().then((state) => setType(mapType(state.type)));
+    return NetInfo.addEventListener((state) => setType(mapType(state.type)));
   }, []);
 
   return type;

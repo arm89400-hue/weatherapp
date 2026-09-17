@@ -28,6 +28,7 @@ export const translations = {
     "sheet.settings": "Settings",
     "common.close": "Close",
     "common.dash": "—",
+    "common.search": "Search",
 
     "hero.noReading": "No current reading yet for this location.",
     "hero.feelsLike": "Feels like {temp}",
@@ -70,6 +71,7 @@ export const translations = {
     "account.notify": "Notify me about severe weather",
     "account.notifyBlocked":
       "Notifications are blocked for this site in your browser settings — enable them there to turn this on.",
+    "account.comingSoon": "Severe weather alerts are coming soon to the app.",
     "account.pickProvinceFirst": "Pick a province above first.",
     "account.logOut": "Log out",
     "account.signInPrompt": "Sign in to get notified about severe weather in your area.",
@@ -132,6 +134,7 @@ export const translations = {
     "sheet.settings": "ตั้งค่า",
     "common.close": "ปิด",
     "common.dash": "—",
+    "common.search": "ค้นหา",
 
     "hero.noReading": "ยังไม่มีข้อมูลสภาพอากาศล่าสุดสำหรับตำแหน่งนี้",
     "hero.feelsLike": "รู้สึกเหมือน {temp}",
@@ -173,6 +176,7 @@ export const translations = {
     "account.notSet": "ยังไม่ได้ตั้งค่า",
     "account.notify": "แจ้งเตือนเมื่อมีสภาพอากาศรุนแรง",
     "account.notifyBlocked": "การแจ้งเตือนถูกบล็อกในเบราว์เซอร์ของคุณ — เปิดใช้งานในการตั้งค่าเบราว์เซอร์เพื่อเปิดสิ่งนี้",
+    "account.comingSoon": "การแจ้งเตือนสภาพอากาศรุนแรงจะมาเร็ว ๆ นี้ในแอป",
     "account.pickProvinceFirst": "เลือกจังหวัดด้านบนก่อน",
     "account.logOut": "ออกจากระบบ",
     "account.signInPrompt": "เข้าสู่ระบบเพื่อรับการแจ้งเตือนสภาพอากาศรุนแรงในพื้นที่ของคุณ",

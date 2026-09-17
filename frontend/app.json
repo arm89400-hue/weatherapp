@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Thai Weather",
+    "slug": "thai-weather",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/weather-icon.png",
+    "scheme": "thaiweather",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#232c3d",
+    "ios": {
+      "icon": "./assets/images/weather-icon.png",
+      "bundleIdentifier": "com.weather.app"
+    },
+    "android": {
+      "package": "com.weather.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#232c3d",
+        "foregroundImage": "./assets/images/weather-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/weather-icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app uses your location to show weather for where you are right now."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
