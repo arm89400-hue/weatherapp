@@ -24,9 +24,11 @@ export const translations = {
     "stat.humidity": "Humidity",
 
     "sheet.location": "Choose location",
+    "sheet.addLocation": "Add location",
     "sheet.account": "Account",
     "sheet.settings": "Settings",
     "common.close": "Close",
+    "common.back": "Back",
     "common.dash": "—",
     "common.search": "Search",
 
@@ -54,12 +56,16 @@ export const translations = {
     "locationPrompt.locating": "Locating...",
     "locationPrompt.useMyLocation": "Use my location",
 
-    "locationPicker.useCurrentLocation": "Use my current location",
-    "locationPicker.locating": "Locating...",
     "locationPicker.province": "Province",
     "locationPicker.selectProvince": "Select province",
     "locationPicker.district": "District",
     "locationPicker.allDistricts": "All districts",
+    "locationPicker.addLocation": "Add location",
+
+    "savedLocations.title": "Your locations",
+    "savedLocations.add": "Add a location",
+    "savedLocations.currentLocation": "Current location",
+    "savedLocations.signInPrompt": "Sign in to save locations for quick access.",
 
     "sun.label": "Sun",
     "sun.am": "AM",
@@ -130,9 +136,11 @@ export const translations = {
     "stat.humidity": "ความชื้น",
 
     "sheet.location": "เลือกตำแหน่ง",
+    "sheet.addLocation": "เพิ่มตำแหน่ง",
     "sheet.account": "บัญชี",
     "sheet.settings": "ตั้งค่า",
     "common.close": "ปิด",
+    "common.back": "กลับ",
     "common.dash": "—",
     "common.search": "ค้นหา",
 
@@ -160,12 +168,16 @@ export const translations = {
     "locationPrompt.locating": "กำลังค้นหาตำแหน่ง...",
     "locationPrompt.useMyLocation": "ใช้ตำแหน่งของฉัน",
 
-    "locationPicker.useCurrentLocation": "ใช้ตำแหน่งปัจจุบันของฉัน",
-    "locationPicker.locating": "กำลังค้นหาตำแหน่ง...",
     "locationPicker.province": "จังหวัด",
     "locationPicker.selectProvince": "เลือกจังหวัด",
     "locationPicker.district": "อำเภอ",
     "locationPicker.allDistricts": "ทุกอำเภอ",
+    "locationPicker.addLocation": "เพิ่มตำแหน่ง",
+
+    "savedLocations.title": "ตำแหน่งของคุณ",
+    "savedLocations.add": "เพิ่มตำแหน่ง",
+    "savedLocations.currentLocation": "ตำแหน่งปัจจุบัน",
+    "savedLocations.signInPrompt": "เข้าสู่ระบบเพื่อบันทึกตำแหน่งสำหรับการเข้าถึงที่รวดเร็ว",
 
     "sun.label": "ดวงอาทิตย์",
     "sun.am": "ก่อนเที่ยง",

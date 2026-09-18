@@ -25,6 +25,7 @@ model User {
   updatedAt         DateTime          @updatedAt
   refreshTokens     RefreshToken[]
   pushSubscriptions PushSubscription[]
+  savedLocations    SavedLocation[]
 
   @@index([favoriteProvinceId])
 }
@@ -40,6 +41,25 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/// A user's saved location for quick access — device location is always shown first in the UI
+/// (not stored here), followed by these in createdAt order. Deliberately no sortOrder column
+/// since nothing reorders them yet. No DB-level uniqueness on (userId, provinceId, districtId)
+/// either, since Postgres treats NULL != NULL and wouldn't catch duplicate province-only saves
+/// (the common case) — the service layer checks instead.
+model SavedLocation {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provinceId String
+  province   Province  @relation(fields: [provinceId], references: [id])
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([provinceId])
 }
 
 model RefreshToken {
@@ -66,6 +86,7 @@ model Province {
   districts District[]
   stations  Station[]
   followers User[]
+  savedLocations SavedLocation[]
 
   @@index([nameEn])
 }
@@ -83,6 +104,7 @@ model District {
   lat        Float?
   lng        Float?
   stations   Station[]
+  savedLocations SavedLocation[]
 
   @@index([provinceId])
 }

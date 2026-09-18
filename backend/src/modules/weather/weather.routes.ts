@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getCurrentWeather, getForecast, getHistory } from "./weather.service.js";
+import { getBatchCurrentWeather, getCurrentWeather, getForecast, getHistory } from "./weather.service.js";
 
 export const weatherRouter = Router();
 
@@ -30,6 +30,28 @@ weatherRouter.get("/forecast", async (req, res, next) => {
     const result = await getForecast(query);
     if (!result) return res.status(404).json({ error: "No station found for location" });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const batchBodySchema = z.object({
+  locations: z
+    .array(
+      z.object({
+        provinceId: z.string(),
+        districtId: z.string().nullable().optional(),
+      })
+    )
+    .min(1)
+    .max(20),
+});
+
+weatherRouter.post("/batch", async (req, res, next) => {
+  try {
+    const { locations } = batchBodySchema.parse(req.body);
+    const results = await getBatchCurrentWeather(locations);
+    res.json(results);
   } catch (err) {
     next(err);
   }

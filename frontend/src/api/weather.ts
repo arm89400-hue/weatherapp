@@ -67,3 +67,17 @@ export async function fetchHistory(stationId: string, from?: Date, to?: Date) {
   });
   return res.data;
 }
+
+export type BatchWeatherResult = {
+  provinceId: string;
+  districtId: string | null;
+  temperature: number | null;
+  condition: string | null;
+  minTemp: number | null;
+  maxTemp: number | null;
+};
+
+export async function fetchBatchCurrentWeather(locations: { provinceId: string; districtId?: string | null }[]) {
+  const res = await apiClient.post<BatchWeatherResult[]>("/weather/batch", { locations });
+  return res.data;
+}

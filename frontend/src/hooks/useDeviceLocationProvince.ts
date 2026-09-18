@@ -1,9 +1,17 @@
 import * as Location from "expo-location";
 import { useState } from "react";
-import { fetchNearestLocation } from "../api/geo";
+import { fetchNearestLocation, type District, type Province } from "../api/geo";
 
 export type LocationStatus = "idle" | "locating" | "resolved" | "denied" | "error";
-export type ResolvedLocation = { provinceId: string; districtId: string | null };
+/** Carries the full province/district (not just ids) so callers can label a "current location"
+ * card without a second lookup — fetchNearestLocation already has these names, previously
+ * discarded down to bare ids here. */
+export type ResolvedLocation = {
+  provinceId: string;
+  districtId: string | null;
+  province: Province;
+  district: District | null;
+};
 
 /** Resolves the device's location to the nearest seeded province, plus a district within it
  * when the reverse-geocoded address text matches one (see geo.service.ts on the backend —
@@ -16,7 +24,7 @@ export function useDeviceLocationProvince(onResolved: (location: ResolvedLocatio
   async function resolveFromCoords(lat: number, lng: number) {
     try {
       const { province, district } = await fetchNearestLocation(lat, lng);
-      onResolved({ provinceId: province.id, districtId: district?.id ?? null });
+      onResolved({ provinceId: province.id, districtId: district?.id ?? null, province, district });
       setStatus("resolved");
     } catch {
       setStatus("error");

@@ -11,6 +11,7 @@ import { weatherRouter } from "./modules/weather/weather.routes.js";
 import { stationsRouter } from "./modules/stations/stations.routes.js";
 import { pushRouter } from "./modules/push/push.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
+import { savedLocationsRouter } from "./modules/savedLocations/savedLocations.routes.js";
 
 export function createApp() {
   const app = express();
@@ -31,6 +32,7 @@ export function createApp() {
   app.use("/api/weather", weatherRouter);
   app.use("/api/push", pushRouter);
   app.use("/api/users", usersRouter);
+  app.use("/api/saved-locations", savedLocationsRouter);
 
   app.use(errorHandler);
 

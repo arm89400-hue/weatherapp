@@ -82,6 +82,89 @@ export async function getForecast(query: LocationQuery) {
   return { station, forecasts };
 }
 
+type BatchLocationQuery = { provinceId: string; districtId?: string | null };
+
+/**
+ * Batched version of resolveStation+getCurrentWeather+getForecast for the saved-locations list
+ * preview, bounded at 4 queries regardless of how many locations are requested (no N+1):
+ * resolve district-tied stations, resolve province-fallback stations, then one query each for
+ * the latest reading and today's forecast per resolved station, using `distinct` + `orderBy`
+ * to get "one row per station" instead of a query per station.
+ */
+export async function getBatchCurrentWeather(locations: BatchLocationQuery[]) {
+  const districtIds = [...new Set(locations.map((l) => l.districtId).filter((id): id is string => !!id))];
+
+  const districtStations = districtIds.length
+    ? await prisma.station.findMany({
+        where: { districtId: { in: districtIds } },
+        orderBy: { id: "asc" },
+        distinct: ["districtId"],
+      })
+    : [];
+  const stationByDistrictId = new Map(districtStations.map((s) => [s.districtId as string, s]));
+
+  // Anything without a district match (no districtId given, or no station tied to it) falls
+  // back to province — each input already carries its own provinceId, so no extra lookup is
+  // needed here (unlike the single-item resolveStation, which looks up the district's parent
+  // province separately).
+  const provinceIdsNeeded = [
+    ...new Set(
+      locations.filter((l) => !l.districtId || !stationByDistrictId.has(l.districtId)).map((l) => l.provinceId)
+    ),
+  ];
+
+  const provinceStations = provinceIdsNeeded.length
+    ? await prisma.station.findMany({
+        where: { provinceId: { in: provinceIdsNeeded } },
+        orderBy: { id: "asc" },
+        distinct: ["provinceId"],
+      })
+    : [];
+  const stationByProvinceId = new Map(provinceStations.map((s) => [s.provinceId as string, s]));
+
+  function resolve(loc: BatchLocationQuery) {
+    if (loc.districtId) {
+      const byDistrict = stationByDistrictId.get(loc.districtId);
+      if (byDistrict) return byDistrict;
+    }
+    return stationByProvinceId.get(loc.provinceId) ?? null;
+  }
+
+  const stationIds = [...new Set(locations.map((l) => resolve(l)?.id).filter((id): id is string => !!id))];
+
+  const readings = stationIds.length
+    ? await prisma.weatherReading.findMany({
+        where: { stationId: { in: stationIds } },
+        orderBy: { observedAt: "desc" },
+        distinct: ["stationId"],
+      })
+    : [];
+  const readingByStationId = new Map(readings.map((r) => [r.stationId, r]));
+
+  const forecasts = stationIds.length
+    ? await prisma.weatherForecast.findMany({
+        where: { stationId: { in: stationIds }, forecastDate: { gte: startOfTodayBangkok() } },
+        orderBy: { forecastDate: "asc" },
+        distinct: ["stationId"],
+      })
+    : [];
+  const forecastByStationId = new Map(forecasts.map((f) => [f.stationId, f]));
+
+  return locations.map((loc) => {
+    const station = resolve(loc);
+    const reading = station ? readingByStationId.get(station.id) : undefined;
+    const forecast = station ? forecastByStationId.get(station.id) : undefined;
+    return {
+      provinceId: loc.provinceId,
+      districtId: loc.districtId ?? null,
+      temperature: reading?.temperature ?? null,
+      condition: reading?.condition ?? null,
+      minTemp: forecast?.minTemp ?? null,
+      maxTemp: forecast?.maxTemp ?? null,
+    };
+  });
+}
+
 export async function getHistory({
   stationId,
   from,

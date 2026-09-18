@@ -1,16 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleUser, Droplets, List, MapPin, Settings as SettingsIcon, Wind as WindIcon } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchDistricts, fetchProvinces } from "../api/geo";
+import { createSavedLocation } from "../api/savedLocations";
 import { fetchCurrentWeather, fetchForecast } from "../api/weather";
 import { AccountPanel } from "../components/AccountPanel";
 import { ForecastList } from "../components/ForecastList";
 import { GlassCard } from "../components/GlassCard";
 import { LocationPicker } from "../components/LocationPicker";
 import { LocationPrompt } from "../components/LocationPrompt";
+import { SavedLocationsList } from "../components/SavedLocationsList";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { Sheet } from "../components/Sheet";
 import { SettingsPanel } from "../components/SettingsPanel";
@@ -18,7 +20,7 @@ import { StatTile } from "../components/StatTile";
 import { SunArc } from "../components/SunArc";
 import { WeatherHero } from "../components/WeatherHero";
 import { useSettings } from "../context/SettingsContext";
-import { useDeviceLocationProvince } from "../hooks/useDeviceLocationProvince";
+import { useDeviceLocationProvince, type ResolvedLocation } from "../hooks/useDeviceLocationProvince";
 import { useWeatherSocket } from "../hooks/useWeatherSocket";
 import { useTranslation } from "../i18n/useTranslation";
 import { localizedName } from "../lib/localizedName";
@@ -32,10 +34,16 @@ export function DashboardScreen() {
   const [districtId, setDistrictId] = useState<string | null>(null);
   const [usedDeviceLocation, setUsedDeviceLocation] = useState(false);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [locationSheetView, setLocationSheetView] = useState<"list" | "add">("list");
   const [accountSheetOpen, setAccountSheetOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  // The device's GPS-resolved location, kept separate from the active provinceId/districtId
+  // above so it still has something to show as the pinned "current location" card even after
+  // the user switches to a different saved location.
+  const [deviceLocation, setDeviceLocation] = useState<ResolvedLocation | null>(null);
   const { language } = useSettings();
   const { t, translateRegion } = useTranslation();
+  const queryClient = useQueryClient();
   // Skip the ask if we already know where they were last time.
   const [locationPromptAnswered, setLocationPromptAnswered] = useState(false);
 
@@ -57,17 +65,18 @@ export function DashboardScreen() {
   }, []);
 
   const { status: locationStatus, request: requestLocation } = useDeviceLocationProvince((location) => {
+    setDeviceLocation(location);
     setProvinceId(location.provinceId);
     setDistrictId(location.districtId);
     setUsedDeviceLocation(true);
   });
 
-  // Once geolocation settles either way, the prompt has done its job.
-  useEffect(() => {
-    if (locationStatus !== "idle" && locationStatus !== "locating") {
-      setLocationPromptAnswered(true);
-    }
-  }, [locationStatus]);
+  // Once geolocation settles either way, the prompt has done its job. Adjusted directly during
+  // render (React's documented way to derive one piece of state from another) rather than via
+  // an effect — the `!locationPromptAnswered` guard keeps this from firing more than once.
+  if (locationStatus !== "idle" && locationStatus !== "locating" && !locationPromptAnswered) {
+    setLocationPromptAnswered(true);
+  }
 
   const { data: provinces = [] } = useQuery({ queryKey: ["geo", "provinces"], queryFn: fetchProvinces });
   const { data: districts = [] } = useQuery({
@@ -110,6 +119,22 @@ export function DashboardScreen() {
     queryFn: () => fetchForecast(locationParams),
     enabled: !!provinceId,
   });
+
+  const addSavedLocationMutation = useMutation({
+    mutationFn: createSavedLocation,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["savedLocations"] });
+      setLocationSheetView("list");
+    },
+  });
+
+  function handleSelectLocation(newProvinceId: string, newDistrictId: string | null) {
+    setProvinceId(newProvinceId);
+    setDistrictId(newDistrictId);
+    setUsedDeviceLocation(false);
+    setLocationSheetOpen(false);
+    setLocationSheetView("list");
+  }
 
   if (!hydrated) {
     return (
@@ -234,22 +259,32 @@ export function DashboardScreen() {
         )}
       </ScrollView>
 
-      <Sheet open={locationSheetOpen} onClose={() => setLocationSheetOpen(false)} title={t("sheet.location")}>
-        <LocationPicker
-          provinceId={provinceId}
-          districtId={districtId}
-          onChangeProvince={(id) => {
-            setProvinceId(id);
-            setUsedDeviceLocation(false);
-          }}
-          onChangeDistrict={setDistrictId}
-          locationStatus={locationStatus}
-          onUseMyLocation={() => {
-            setUsedDeviceLocation(false);
-            requestLocation();
-            setLocationSheetOpen(false);
-          }}
-        />
+      <Sheet
+        open={locationSheetOpen}
+        onClose={() => {
+          setLocationSheetOpen(false);
+          setLocationSheetView("list");
+        }}
+        title={locationSheetView === "add" ? t("sheet.addLocation") : t("sheet.location")}
+      >
+        {locationSheetView === "add" ? (
+          <LocationPicker
+            onSubmit={(newProvinceId, newDistrictId) =>
+              addSavedLocationMutation.mutate({ provinceId: newProvinceId, districtId: newDistrictId })
+            }
+            onBack={() => setLocationSheetView("list")}
+          />
+        ) : (
+          <SavedLocationsList
+            activeProvinceId={provinceId}
+            activeDistrictId={districtId}
+            onSelectLocation={handleSelectLocation}
+            onAddNew={() => setLocationSheetView("add")}
+            deviceLocation={deviceLocation}
+            deviceLocationStatus={locationStatus}
+            onRequestDeviceLocation={requestLocation}
+          />
+        )}
       </Sheet>
 
       <Sheet open={accountSheetOpen} onClose={() => setAccountSheetOpen(false)} title={t("sheet.account")}>
