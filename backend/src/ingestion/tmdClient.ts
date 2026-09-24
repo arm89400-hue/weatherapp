@@ -2,15 +2,9 @@ import { XMLParser } from "fast-xml-parser";
 import { env } from "../config/env.js";
 import { logger } from "../lib/logger.js";
 
-/**
- * Thin client over the TMD open data XML API (data.tmd.go.th/api).
- *
- * IMPORTANT: TMD's exact XML tag names could not be verified against a live
- * response while building this (no API key available yet). The `raw` field
- * on every parsed record preserves the full parsed payload so nothing is
- * lost — once real credentials exist, fetch one response per endpoint, log
- * `raw`, and adjust the field-mapping in this file if tag names differ.
- */
+// Thin client over the TMD open data XML API (data.tmd.go.th/api).
+// IMPORTANT: XML tag names below are unverified (no API key while writing this) — `raw` keeps
+// the full payload, so once credentials exist, log it and fix the mapping if tags differ.
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
 

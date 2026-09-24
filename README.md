@@ -20,7 +20,8 @@ See [`HOW-IT-WORKS.md`](HOW-IT-WORKS.md) for the full architecture walkthrough.
 ```bash
 cp .env.example .env
 # edit .env: set real JWT_ACCESS_SECRET / JWT_REFRESH_SECRET (e.g. `openssl rand -hex 32`),
-# and TMD_API_UID / TMD_API_UKEY once you have them
+# and TMD_API_UID / TMD_API_UKEY once you have them (EXPO_ACCESS_TOKEN is optional — see the
+# comment in .env.example)
 
 docker compose up -d --build            # postgres, redis, backend, worker
 docker compose exec backend npx tsx prisma/seed.ts   # loads all 77 provinces + districts

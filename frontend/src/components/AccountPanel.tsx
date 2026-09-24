@@ -1,92 +1,74 @@
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { LogOut } from "lucide-react-native";
-import { useState } from "react";
+import { History, LogOut, UserRound } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
-import { fetchProvinces } from "../api/geo";
-import { updateFavoriteProvince } from "../api/users";
 import { useAuth } from "../context/AuthContext";
-import { useSettings } from "../context/SettingsContext";
+import { useUnreadAlertCount } from "../hooks/useUnreadAlertCount";
 import { useTranslation } from "../i18n/useTranslation";
-import { localizedName } from "../lib/localizedName";
-import { SelectSheet } from "./SelectSheet";
+import { FadeInView } from "./Motion";
+import { SettingsRow, SettingsSection } from "./SettingsList";
+import { SignedInNotificationsRow } from "./SettingsPanel";
 
-export function AccountPanel({ onClose }: { onClose: () => void }) {
-  const { user, logout, setUser } = useAuth();
-  const { language } = useSettings();
+export function AccountPanel({
+  onClose,
+  onOpenNotifications,
+  onOpenHistory,
+}: {
+  onClose: () => void;
+  onOpenNotifications: () => void;
+  onOpenHistory: () => void;
+}) {
+  const { user, logout } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
-  const [savingProvince, setSavingProvince] = useState(false);
-  const [provinceSheetOpen, setProvinceSheetOpen] = useState(false);
-  const { data: provinces = [] } = useQuery({
-    queryKey: ["geo", "provinces"],
-    queryFn: fetchProvinces,
-    enabled: !!user,
-  });
+  const unread = useUnreadAlertCount();
 
   if (user) {
-    const selectedProvince = provinces.find((p) => p.id === user.favoriteProvinceId);
-
+    const initial = user.email.charAt(0).toUpperCase();
     return (
-      <View className="gap-4">
-        <Text className="text-sm text-white/70">{t("account.signedInAs", { email: user.email })}</Text>
+      <View className="gap-5">
+        <FadeInView index={0} baseDelay={60}>
+          <View className="flex-row items-center gap-3 rounded-2xl bg-white/10 p-4">
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-sky-400/30">
+              <Text className="text-lg font-semibold text-white">{initial}</Text>
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-white" numberOfLines={1}>
+                {user.email}
+              </Text>
+              <Text className="text-xs text-white/50">{t("account.signedIn")}</Text>
+            </View>
+          </View>
+        </FadeInView>
 
-        <View>
-          <Text className="mb-1 text-xs text-white/60">{t("account.alertMeIn")}</Text>
-          <Pressable
-            disabled={savingProvince}
-            onPress={() => setProvinceSheetOpen(true)}
-            className="rounded-xl bg-white/10 px-3 py-2.5 disabled:opacity-50"
-          >
-            <Text className="text-sm text-white">
-              {selectedProvince ? localizedName(selectedProvince, language) : t("account.notSet")}
-            </Text>
-          </Pressable>
-        </View>
+        <SettingsSection index={1} title={t("settings.sectionNotifications")}>
+          <SignedInNotificationsRow onPress={onOpenNotifications} />
+          <SettingsRow icon={History} label={t("history.title")} badge={unread} onPress={onOpenHistory} />
+        </SettingsSection>
 
-        {/* Push notifications are deferred — the old Web Push/VAPID flow has no RN equivalent.
-         * A future pass swaps this for expo-notifications and re-enables the toggle. */}
-        <View className="rounded-xl bg-white/10 px-4 py-3">
-          <Text className="text-sm font-medium text-white/50">{t("account.notify")}</Text>
-          <Text className="mt-1 text-xs text-white/40">{t("account.comingSoon")}</Text>
-        </View>
-
-        <Pressable
-          onPress={() => {
-            logout();
-            onClose();
-          }}
-          className="flex-row items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5"
-        >
-          <LogOut size={16} color="white" />
-          <Text className="text-sm font-medium text-white">{t("account.logOut")}</Text>
-        </Pressable>
-
-        <SelectSheet
-          open={provinceSheetOpen}
-          onClose={() => setProvinceSheetOpen(false)}
-          title={t("account.alertMeIn")}
-          options={provinces.map((p) => ({ value: p.id, label: localizedName(p, language) }))}
-          value={user.favoriteProvinceId}
-          onChange={async (favoriteProvinceId) => {
-            setSavingProvince(true);
-            try {
-              const updated = await updateFavoriteProvince(favoriteProvinceId);
-              setUser(updated);
-            } finally {
-              setSavingProvince(false);
-            }
-          }}
-          nullable
-          nullLabel={t("account.notSet")}
-        />
+        <SettingsSection index={2}>
+          <SettingsRow
+            icon={LogOut}
+            label={t("account.logOut")}
+            destructive
+            onPress={() => {
+              logout();
+              onClose();
+            }}
+            showChevron={false}
+          />
+        </SettingsSection>
       </View>
     );
   }
 
   return (
     <View className="gap-3">
-      <Text className="text-sm text-white/70">{t("account.signInPrompt")}</Text>
+      <View className="items-center gap-3 rounded-2xl bg-white/10 px-4 py-5">
+        <View className="h-12 w-12 items-center justify-center rounded-full bg-white/10">
+          <UserRound size={22} color="white" />
+        </View>
+        <Text className="text-center text-sm text-white/70">{t("account.signInPrompt")}</Text>
+      </View>
       <Pressable
         onPress={() => {
           onClose();

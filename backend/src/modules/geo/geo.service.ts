@@ -19,9 +19,8 @@ export async function findNearestProvince(lat: number, lng: number) {
   return nearest;
 }
 
-/** Thai districts are named either "<Name>" (most provinces) or "Khet <Name>" (Bangkok);
- * Nominatim returns "<Name> District" / "<Name> Subdistrict" — strip both conventions down to
- * the bare name before comparing. */
+// Strips both "Amphoe/Khet <Name>" (our naming) and "<Name> District/Subdistrict" (Nominatim's)
+// down to the bare name so they compare equal.
 function normalizeAdminName(name: string) {
   return name
     .replace(/^(Amphoe|King Amphoe|Khet)\s+/i, "")
@@ -43,14 +42,8 @@ async function matchDistrictByName(candidate: string, provinceId: string) {
   );
 }
 
-/**
- * Districts have no coordinates of their own (see prisma/seed.ts), so instead of a nearest-
- * distance match we reverse-geocode the single point via Nominatim and text-match the
- * returned admin name against the resolved province's districts. `county` covers the amphoe
- * case (most provinces); `suburb` covers Bangkok, whose top-level units (khet) come back
- * there instead. Failure (network error, no match) just means no district — never blocks
- * showing the province-level weather.
- */
+// Districts have no coordinates (see prisma/seed.ts), so we reverse-geocode via Nominatim and
+// text-match the admin name instead (`county` for most provinces, `suburb` for Bangkok's khet).
 export async function resolveDistrictForPoint(lat: number, lng: number, provinceId: string) {
   let address;
   try {

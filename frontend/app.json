@@ -14,12 +14,13 @@
     },
     "android": {
       "package": "com.weather.app",
+      "versionCode": 2,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#232c3d",
         "foregroundImage": "./assets/images/weather-icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
@@ -31,6 +32,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
       "expo-secure-store",
       "expo-localization",
       [
@@ -38,11 +47,18 @@
         {
           "locationAlwaysAndWhenInUsePermission": "This app uses your location to show weather for where you are right now."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/weather-icon.png",
+          "color": "#232c3d"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     },
     "extra": {
       "router": {},

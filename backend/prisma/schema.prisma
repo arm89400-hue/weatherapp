@@ -13,32 +13,117 @@ enum Role {
 }
 
 model User {
-  id                String            @id @default(cuid())
-  email             String            @unique
+  id                String              @id @default(cuid())
+  email             String              @unique
   passwordHash      String
   name              String
-  role              Role              @default(USER)
-  /// Single location this user gets severe-weather push notifications for (see PushSubscription).
-  favoriteProvinceId String?
-  favoriteProvince  Province?         @relation(fields: [favoriteProvinceId], references: [id])
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  role              Role                @default(USER)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   refreshTokens     RefreshToken[]
   pushSubscriptions PushSubscription[]
   savedLocations    SavedLocation[]
+  alertPreference   AlertPreference?
+  stationAlerts     UserStationAlert[]
+  forecastAlerts    UserForecastAlert[]
+  alertHistory      AlertHistory[]
+}
 
-  @@index([favoriteProvinceId])
+/// What counts as "severe" for one user. One row per user, created on first save — no row means
+/// the defaults below apply, and those defaults are exactly the values that were hardcoded in
+/// weatherAlerts.ts before this became configurable, so existing users see no change until they
+/// touch the controls.
+///
+/// Applies to every one of the user's SavedLocation provinces (see weatherAlerts.ts) — there is
+/// no per-location override, one set of thresholds covers all of them.
+model AlertPreference {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Alert at or above this temperature (°C).
+  maxTempC          Float    @default(40)
+  /// Alert at or below this temperature (°C).
+  minTempC          Float    @default(10)
+  /// Alert at or above this rainfall reading (mm).
+  rainfallMm        Float    @default(10)
+  /// Per-condition on/off switches, independent of the numeric thresholds above.
+  alertHeat         Boolean  @default(true)
+  alertCold         Boolean  @default(true)
+  alertRain         Boolean  @default(true)
+  alertThunderstorm Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// Tracks the last condition each user was alerted about at each station, so ingestion pushes on
+/// a genuinely new transition rather than every ~20-minute cycle of an ongoing storm.
+///
+/// This lived on Station until thresholds became per-user. It can't anymore: with one flag per
+/// station, a reading that crosses user A's 35°C threshold marks the station as "alerted", and
+/// user B — whose threshold is 40°C — then gets nothing when it climbs to 41°C, because the
+/// station already looks handled. The dedupe state has to be as granular as the thresholds are.
+model UserStationAlert {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stationId          String
+  station            Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  lastAlertCondition String?
+  lastAlertAt        DateTime?
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([userId, stationId])
+  @@index([userId])
+}
+
+/// One row per (user, station): the last date we sent that user a "tomorrow's forecast looks
+/// severe" heads-up for that station, so a forecast that's re-pulled every 3 hours doesn't
+/// re-notify until the date it's warning about actually changes.
+model UserForecastAlert {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stationId     String
+  station       Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  lastAlertDate DateTime
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, stationId])
+  @@index([userId])
 }
 
 /// A browser/device's Web Push registration (https://developer.mozilla.org/en-US/docs/Web/API/Push_API).
+/// One row per device the user has enabled alerts on (a user can have several — phone + tablet,
+/// or a reinstall that got a new token). `expoPushToken` is the opaque token Expo's push service
+/// hands back from `Notifications.getExpoPushTokenAsync()` on-device; sending a push is just
+/// POSTing this token + a payload to Expo's API (see backend/src/lib/expoPush.ts), no VAPID/keys
+/// needed on our side.
+/// One row per push actually handed to Expo for a user — the app's "Alert history" list and its
+/// unread badge. Written by sendPushToUser (push.service.ts), the single funnel every alert goes
+/// through. `title`/`body` are stored as sent so history still reads right after a province or
+/// station is renamed.
+model AlertHistory {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "live" (severe weather now), "forecast" (tomorrow's heads-up) or "test".
+  kind       String
+  title      String
+  body       String
+  provinceId String?
+  /// Null until the user opens Alert history — drives the unread badge.
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
 model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expoPushToken String   @unique
+  createdAt     DateTime @default(now())
 
   @@index([userId])
 }
@@ -56,6 +141,10 @@ model SavedLocation {
   province   Province  @relation(fields: [provinceId], references: [id])
   districtId String?
   district   District? @relation(fields: [districtId], references: [id])
+  /// Whether severe-weather / forecast pushes cover this location's province. Alerts are
+  /// province-level, so the app flips every saved location in a province together (see
+  /// setProvinceNotify) — a province alerts if any of the user's rows for it has notify = true.
+  notify     Boolean   @default(true)
   createdAt  DateTime  @default(now())
 
   @@index([userId])
@@ -63,47 +152,46 @@ model SavedLocation {
 }
 
 model RefreshToken {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash  String    @unique
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
 
 model Province {
-  id        String     @id @default(cuid())
+  id             String          @id @default(cuid())
   /// id from the source reference dataset (kongvut/thai-province-data), used to upsert on reseed
-  sourceId  Int        @unique
-  nameTh    String
-  nameEn    String
-  region    String
-  lat       Float
-  lng       Float
-  districts District[]
-  stations  Station[]
-  followers User[]
+  sourceId       Int             @unique
+  nameTh         String
+  nameEn         String
+  region         String
+  lat            Float
+  lng            Float
+  districts      District[]
+  stations       Station[]
   savedLocations SavedLocation[]
 
   @@index([nameEn])
 }
 
 model District {
-  id         String    @id @default(cuid())
+  id             String          @id @default(cuid())
   /// id from the source reference dataset (kongvut/thai-province-data), used to upsert on reseed
-  sourceId   Int       @unique
-  provinceId String
-  province   Province  @relation(fields: [provinceId], references: [id], onDelete: Cascade)
-  nameTh     String
-  nameEn     String
+  sourceId       Int             @unique
+  provinceId     String
+  province       Province        @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  nameTh         String
+  nameEn         String
   // No reliable free per-district geocode source was found (see prisma/seed.ts) — nullable
   // until district-level coordinates are sourced or manually curated.
-  lat        Float?
-  lng        Float?
-  stations   Station[]
+  lat            Float?
+  lng            Float?
+  stations       Station[]
   savedLocations SavedLocation[]
 
   @@index([provinceId])
@@ -117,45 +205,44 @@ enum StationType {
 }
 
 model Station {
-  id           String            @id @default(cuid())
-  tmdStationId String            @unique
-  nameTh       String
-  nameEn       String
-  lat          Float
-  lng          Float
-  stationType  StationType       @default(OTHER)
-  provinceId   String?
-  province     Province?         @relation(fields: [provinceId], references: [id])
-  districtId   String?
-  district     District?         @relation(fields: [districtId], references: [id])
-  readings     WeatherReading[]
-  forecasts    WeatherForecast[]
-  /// Tracks the last condition an alert was sent for, so ingestion only pushes on a genuinely
-  /// new severe-weather transition rather than every ingestion cycle of an ongoing storm.
-  lastAlertCondition String?
-  lastAlertAt        DateTime?
+  id                 String              @id @default(cuid())
+  tmdStationId       String              @unique
+  nameTh             String
+  nameEn             String
+  lat                Float
+  lng                Float
+  stationType        StationType         @default(OTHER)
+  provinceId         String?
+  province           Province?           @relation(fields: [provinceId], references: [id])
+  districtId         String?
+  district           District?           @relation(fields: [districtId], references: [id])
+  readings           WeatherReading[]
+  forecasts          WeatherForecast[]
+  /// Alert dedupe state lives in UserStationAlert/UserForecastAlert, not here — see those models.
+  userAlerts         UserStationAlert[]
+  userForecastAlerts UserForecastAlert[]
 
   @@index([provinceId])
   @@index([districtId])
 }
 
 model WeatherReading {
-  id           String   @id @default(cuid())
-  stationId    String
-  station      Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  observedAt   DateTime
-  temperature  Float?
-  feelsLike    Float?
-  humidity     Float?
-  rainfallMm   Float?
-  windSpeed    Float?
-  windDirection Float?
-  pressure     Float?
-  condition    String?
-  uvIndex      Float?
+  id              String   @id @default(cuid())
+  stationId       String
+  station         Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  observedAt      DateTime
+  temperature     Float?
+  feelsLike       Float?
+  humidity        Float?
+  rainfallMm      Float?
+  windSpeed       Float?
+  windDirection   Float?
+  pressure        Float?
+  condition       String?
+  uvIndex         Float?
   airQualityIndex Int?
-  raw          Json
-  createdAt    DateTime @default(now())
+  raw             Json
+  createdAt       DateTime @default(now())
 
   @@unique([stationId, observedAt])
   @@index([stationId, observedAt])

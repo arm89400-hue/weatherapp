@@ -3,9 +3,8 @@ import { useState } from "react";
 import { fetchNearestLocation, type District, type Province } from "../api/geo";
 
 export type LocationStatus = "idle" | "locating" | "resolved" | "denied" | "error";
-/** Carries the full province/district (not just ids) so callers can label a "current location"
- * card without a second lookup — fetchNearestLocation already has these names, previously
- * discarded down to bare ids here. */
+// Carries the full province/district, not just ids, so callers can label a "current location"
+// card without a second lookup.
 export type ResolvedLocation = {
   provinceId: string;
   districtId: string | null;
@@ -13,11 +12,9 @@ export type ResolvedLocation = {
   district: District | null;
 };
 
-/** Resolves the device's location to the nearest seeded province, plus a district within it
- * when the reverse-geocoded address text matches one (see geo.service.ts on the backend —
- * districts have no coordinates of their own, so this is a best-effort match, not guaranteed).
- * Does nothing until `request()` is called — the caller should ask the visitor first (see
- * LocationPrompt) rather than firing a permission dialog unprompted. */
+// Resolves the device's location to the nearest seeded province, plus a best-effort district
+// match (districts have no coordinates of their own — see geo.service.ts on the backend). Does
+// nothing until `request()` is called, so callers should ask first (see LocationPrompt).
 export function useDeviceLocationProvince(onResolved: (location: ResolvedLocation) => void) {
   const [status, setStatus] = useState<LocationStatus>("idle");
 

@@ -33,9 +33,8 @@ export async function scheduleRepeatableJobs(queue: Queue) {
     { repeat: { every: 3 * 60 * 60 * 1000 }, jobId: "pullForecast" } // every 3 hours
   );
 
-  // Open-Meteo needs no API key, so this is the live data source today — see
-  // ingestion/openMeteoClient.ts. The TMD jobs above stay scheduled (harmlessly failing
-  // until TMD_API_UID/UKEY are set) so nothing needs to change here once a key exists.
+  // Live data source today since it needs no API key (see openMeteoClient.ts). TMD jobs above
+  // stay scheduled, harmlessly failing until TMD_API_UID/UKEY are set.
   await queue.add(
     "pullOpenMeteoWeather" satisfies IngestionJobName,
     {},

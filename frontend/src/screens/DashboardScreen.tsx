@@ -1,25 +1,31 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { CircleUser, Droplets, List, MapPin, Settings as SettingsIcon, Wind as WindIcon } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchDistricts, fetchProvinces } from "../api/geo";
 import { createSavedLocation } from "../api/savedLocations";
 import { fetchCurrentWeather, fetchForecast } from "../api/weather";
 import { AccountPanel } from "../components/AccountPanel";
+import { AlertHistory } from "../components/AlertHistory";
 import { ForecastList } from "../components/ForecastList";
 import { GlassCard } from "../components/GlassCard";
 import { LocationPicker } from "../components/LocationPicker";
 import { LocationPrompt } from "../components/LocationPrompt";
+import { FadeInView, PageTransition, PressableScale } from "../components/Motion";
+import { NotificationSettings } from "../components/NotificationSettings";
 import { SavedLocationsList } from "../components/SavedLocationsList";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { Sheet } from "../components/Sheet";
+import { UnreadBadge } from "../components/SettingsList";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { StatTile } from "../components/StatTile";
 import { SunArc } from "../components/SunArc";
 import { WeatherHero } from "../components/WeatherHero";
 import { useSettings } from "../context/SettingsContext";
+import { useUnreadAlertCount } from "../hooks/useUnreadAlertCount";
 import { useDeviceLocationProvince, type ResolvedLocation } from "../hooks/useDeviceLocationProvince";
 import { useWeatherSocket } from "../hooks/useWeatherSocket";
 import { useTranslation } from "../i18n/useTranslation";
@@ -37,9 +43,14 @@ export function DashboardScreen() {
   const [locationSheetView, setLocationSheetView] = useState<"list" | "add">("list");
   const [accountSheetOpen, setAccountSheetOpen] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
-  // The device's GPS-resolved location, kept separate from the active provinceId/districtId
-  // above so it still has something to show as the pinned "current location" card even after
-  // the user switches to a different saved location.
+  // Both sheets can drill into the same Notifications sub-page — kept per-sheet (rather than
+  // hopping between two Modals) because iOS can't present one Modal while another is dismissing.
+  const [accountSheetView, setAccountSheetView] = useState<"main" | "notifications" | "history">("main");
+  const unreadAlerts = useUnreadAlertCount();
+  const [settingsSheetView, setSettingsSheetView] = useState<"main" | "notifications">("main");
+  const router = useRouter();
+  // Kept separate from provinceId/districtId so the pinned "current location" card still has
+  // something to show after the user switches to a different saved location.
   const [deviceLocation, setDeviceLocation] = useState<ResolvedLocation | null>(null);
   const { language } = useSettings();
   const { t, translateRegion } = useTranslation();
@@ -47,10 +58,9 @@ export function DashboardScreen() {
   // Skip the ask if we already know where they were last time.
   const [locationPromptAnswered, setLocationPromptAnswered] = useState(false);
 
-  // Unlike the old web app's synchronous localStorage read, AsyncStorage is async — state
-  // starts empty and is filled in once this resolves, gated by `hydrated` so the effects below
-  // don't fire (fallback-to-first-province, persisting null back over a value not yet loaded)
-  // before the real stored value has had a chance to load.
+  // AsyncStorage is async — state starts empty and fills in once this resolves. `hydrated` gates
+  // the effects below so they don't fire (fallback-to-first-province, persisting null) before
+  // the real stored value has loaded.
   useEffect(() => {
     (async () => {
       const entries = await AsyncStorage.multiGet([LAST_PROVINCE_KEY, LAST_DISTRICT_KEY]);
@@ -71,9 +81,8 @@ export function DashboardScreen() {
     setUsedDeviceLocation(true);
   });
 
-  // Once geolocation settles either way, the prompt has done its job. Adjusted directly during
-  // render (React's documented way to derive one piece of state from another) rather than via
-  // an effect — the `!locationPromptAnswered` guard keeps this from firing more than once.
+  // Derived during render rather than via an effect (React's documented pattern for this); the
+  // guard keeps it from firing more than once.
   if (locationStatus !== "idle" && locationStatus !== "locating" && !locationPromptAnswered) {
     setLocationPromptAnswered(true);
   }
@@ -86,12 +95,11 @@ export function DashboardScreen() {
   });
 
   // Fall back to the first province once the list loads, but only after hydration and the
-  // location prompt have both settled, and nothing got selected.
-  useEffect(() => {
-    if (hydrated && !provinceId && locationPromptAnswered && locationStatus !== "locating" && provinces.length > 0) {
-      setProvinceId(provinces[0].id);
-    }
-  }, [hydrated, provinceId, locationPromptAnswered, locationStatus, provinces]);
+  // location prompt have settled with nothing selected. Done during render (guarded, like the
+  // prompt check above) rather than in an effect, which would cost an extra render pass.
+  if (hydrated && !provinceId && locationPromptAnswered && locationStatus !== "locating" && provinces.length > 0) {
+    setProvinceId(provinces[0].id);
+  }
 
   useEffect(() => {
     if (!hydrated) return;
@@ -136,6 +144,21 @@ export function DashboardScreen() {
     setLocationSheetView("list");
   }
 
+  function closeAccountSheet() {
+    setAccountSheetOpen(false);
+    setAccountSheetView("main");
+  }
+
+  function closeSettingsSheet() {
+    setSettingsSheetOpen(false);
+    setSettingsSheetView("main");
+  }
+
+  function signInFrom(closeSheet: () => void) {
+    closeSheet();
+    router.push("/login");
+  }
+
   if (!hydrated) {
     return (
       <ScreenBackground>
@@ -153,148 +176,208 @@ export function DashboardScreen() {
 
   return (
     <ScreenBackground>
-    <SafeAreaView className="flex-1">
-      <ScrollView contentContainerClassName="pb-10">
-        <View className="flex-row items-start justify-between px-5 pt-4">
-          <View>
-            <Text className="text-lg font-semibold leading-tight text-white">{locationName}</Text>
-            {province?.region && (
-              <Text className="text-xs text-white/60">
-                {t("region.suffix", { region: translateRegion(province.region) ?? "" })}
-              </Text>
-            )}
-            <Pressable
-              onPress={() => setLocationSheetOpen(true)}
-              accessibilityLabel={t("header.changeLocation")}
-              className="mt-1 self-start opacity-60"
-            >
-              <MapPin size={16} color="white" />
-            </Pressable>
-          </View>
+      <SafeAreaView className="flex-1">
+        <ScrollView contentContainerClassName="pb-10">
+          <View className="flex-row items-start justify-between px-5 pt-4">
+            <View>
+              <Text className="text-lg font-semibold leading-tight text-white">{locationName}</Text>
+              {province?.region && (
+                <Text className="text-xs text-white/60">
+                  {t("region.suffix", { region: translateRegion(province.region) ?? "" })}
+                </Text>
+              )}
+              <PressableScale
+                onPress={() => setLocationSheetOpen(true)}
+                accessibilityLabel={t("header.changeLocation")}
+                containerClassName="mt-1 self-start"
+                className="opacity-60"
+                scaleTo={0.85}
+              >
+                <MapPin size={16} color="white" />
+              </PressableScale>
+            </View>
 
-          <GlassCard className="flex-row items-center gap-1 rounded-full p-1">
-            <Pressable
-              onPress={() => setLocationSheetOpen(true)}
-              accessibilityLabel={t("header.chooseLocation")}
-              className="rounded-full p-2.5"
-            >
-              <List size={16} color="rgba(255,255,255,0.8)" />
-            </Pressable>
-            <Pressable
-              onPress={() => setAccountSheetOpen(true)}
-              accessibilityLabel={t("header.account")}
-              className="rounded-full p-2.5"
-            >
-              <CircleUser size={16} color="rgba(255,255,255,0.8)" />
-            </Pressable>
-            <Pressable
-              onPress={() => setSettingsSheetOpen(true)}
-              accessibilityLabel={t("header.settings")}
-              className="rounded-full p-2.5"
-            >
-              <SettingsIcon size={16} color="rgba(255,255,255,0.8)" />
-            </Pressable>
-          </GlassCard>
-        </View>
-
-        {showLocationPrompt ? (
-          <LocationPrompt
-            status={locationStatus}
-            onAllow={requestLocation}
-            onDismiss={() => setLocationPromptAnswered(true)}
-          />
-        ) : (
-          <>
-            {locationStatus === "denied" && (
-              <Text className="px-5 pt-2 text-center text-xs text-white/60">
-                {t("location.deniedNotice", { name: localizedName(province, language) || locationName })}
-              </Text>
-            )}
-            {usedDeviceLocation && locationStatus === "resolved" && (
-              <Text className="px-5 pt-2 text-center text-xs text-white/60">{t("location.deviceNotice")}</Text>
-            )}
-
-            <WeatherHero data={currentQuery.data} todayForecast={todayForecast} isLoading={currentQuery.isLoading} />
-
-            <View className="gap-4 px-5">
-              <ForecastList forecasts={forecastQuery.data?.forecasts ?? []} />
-
-              <View className="gap-4">
-                <View className="flex-row gap-4">
-                  <StatTile
-                    icon={Droplets}
-                    label={t("stat.precipitation")}
-                    value={reading?.rainfallMm != null ? reading.rainfallMm.toFixed(1) : t("common.dash")}
-                    unit="mm"
-                    subtitle={t("stat.precipitationSubtitle")}
-                  />
-                  <StatTile
-                    icon={WindIcon}
-                    label={t("stat.wind")}
-                    value={reading?.windSpeed != null ? Math.round(reading.windSpeed) : t("common.dash")}
-                    unit="km/h"
-                    subtitle={
-                      currentQuery.data?.wind?.directionLabel
-                        ? t("stat.windSubtitle", {
-                            dir: currentQuery.data.wind.directionLabel,
-                            scale: currentQuery.data.wind.scale ?? t("common.dash"),
-                          })
-                        : undefined
-                    }
+            <GlassCard className="rounded-full p-1" contentClassName="flex-row items-center gap-1">
+              <PressableScale
+                onPress={() => setLocationSheetOpen(true)}
+                accessibilityLabel={t("header.chooseLocation")}
+                className="rounded-full p-2.5"
+                scaleTo={0.88}
+              >
+                <List size={16} color="rgba(255,255,255,0.8)" />
+              </PressableScale>
+              <PressableScale
+                onPress={() => setAccountSheetOpen(true)}
+                accessibilityLabel={t("header.account")}
+                className="rounded-full p-2.5"
+                scaleTo={0.88}
+              >
+                <CircleUser size={16} color="rgba(255,255,255,0.8)" />
+                {/* Unread alerts — cleared by opening Account → Alert history. */}
+                <View pointerEvents="none" style={{ position: "absolute", top: -2, right: -4 }}>
+                  <UnreadBadge
+                    count={unreadAlerts}
+                    accessibilityLabel={t("history.unreadBadge", { n: unreadAlerts })}
                   />
                 </View>
-                <StatTile
-                  icon={Droplets}
-                  label={t("stat.humidity")}
-                  value={reading?.humidity != null ? Math.round(reading.humidity) : t("common.dash")}
-                  unit="%"
-                />
-              </View>
+              </PressableScale>
+              <PressableScale
+                onPress={() => setSettingsSheetOpen(true)}
+                accessibilityLabel={t("header.settings")}
+                className="rounded-full p-2.5"
+                scaleTo={0.88}
+              >
+                <SettingsIcon size={16} color="rgba(255,255,255,0.8)" />
+              </PressableScale>
+            </GlassCard>
+          </View>
 
-              {currentQuery.data?.sun && (
-                <SunArc sunrise={currentQuery.data.sun.sunrise} sunset={currentQuery.data.sun.sunset} />
+          {showLocationPrompt ? (
+            <LocationPrompt
+              status={locationStatus}
+              onAllow={requestLocation}
+              onDismiss={() => setLocationPromptAnswered(true)}
+            />
+          ) : (
+            <>
+              {locationStatus === "denied" && (
+                <Text className="px-5 pt-2 text-center text-xs text-white/60">
+                  {t("location.deniedNotice", { name: localizedName(province, language) || locationName })}
+                </Text>
               )}
-            </View>
-          </>
-        )}
-      </ScrollView>
+              {usedDeviceLocation && locationStatus === "resolved" && (
+                <Text className="px-5 pt-2 text-center text-xs text-white/60">{t("location.deviceNotice")}</Text>
+              )}
 
-      <Sheet
-        open={locationSheetOpen}
-        onClose={() => {
-          setLocationSheetOpen(false);
-          setLocationSheetView("list");
-        }}
-        title={locationSheetView === "add" ? t("sheet.addLocation") : t("sheet.location")}
-      >
-        {locationSheetView === "add" ? (
-          <LocationPicker
-            onSubmit={(newProvinceId, newDistrictId) =>
-              addSavedLocationMutation.mutate({ provinceId: newProvinceId, districtId: newDistrictId })
-            }
-            onBack={() => setLocationSheetView("list")}
-          />
-        ) : (
-          <SavedLocationsList
-            activeProvinceId={provinceId}
-            activeDistrictId={districtId}
-            onSelectLocation={handleSelectLocation}
-            onAddNew={() => setLocationSheetView("add")}
-            deviceLocation={deviceLocation}
-            deviceLocationStatus={locationStatus}
-            onRequestDeviceLocation={requestLocation}
-          />
-        )}
-      </Sheet>
+              <FadeInView index={0}>
+                <WeatherHero
+                  data={currentQuery.data}
+                  todayForecast={todayForecast}
+                  isLoading={currentQuery.isLoading}
+                />
+              </FadeInView>
 
-      <Sheet open={accountSheetOpen} onClose={() => setAccountSheetOpen(false)} title={t("sheet.account")}>
-        <AccountPanel onClose={() => setAccountSheetOpen(false)} />
-      </Sheet>
+              <View className="gap-4 px-5">
+                <FadeInView index={1}>
+                  <ForecastList forecasts={forecastQuery.data?.forecasts ?? []} />
+                </FadeInView>
 
-      <Sheet open={settingsSheetOpen} onClose={() => setSettingsSheetOpen(false)} title={t("sheet.settings")}>
-        <SettingsPanel />
-      </Sheet>
-    </SafeAreaView>
+                <FadeInView index={2}>
+                  <View className="gap-4">
+                    <View className="flex-row gap-4">
+                      <StatTile
+                        icon={Droplets}
+                        label={t("stat.precipitation")}
+                        value={reading?.rainfallMm != null ? reading.rainfallMm.toFixed(1) : t("common.dash")}
+                        unit="mm"
+                        subtitle={t("stat.precipitationSubtitle")}
+                      />
+                      <StatTile
+                        icon={WindIcon}
+                        label={t("stat.wind")}
+                        value={reading?.windSpeed != null ? Math.round(reading.windSpeed) : t("common.dash")}
+                        unit="km/h"
+                        subtitle={
+                          currentQuery.data?.wind?.directionLabel
+                            ? t("stat.windSubtitle", {
+                                dir: currentQuery.data.wind.directionLabel,
+                                scale: currentQuery.data.wind.scale ?? t("common.dash"),
+                              })
+                            : undefined
+                        }
+                      />
+                    </View>
+                    <StatTile
+                      icon={Droplets}
+                      label={t("stat.humidity")}
+                      value={reading?.humidity != null ? Math.round(reading.humidity) : t("common.dash")}
+                      unit="%"
+                    />
+                  </View>
+                </FadeInView>
+
+                {currentQuery.data?.sun && (
+                  <FadeInView index={3}>
+                    <SunArc sunrise={currentQuery.data.sun.sunrise} sunset={currentQuery.data.sun.sunset} />
+                  </FadeInView>
+                )}
+              </View>
+            </>
+          )}
+        </ScrollView>
+
+        <Sheet
+          open={locationSheetOpen}
+          onClose={() => {
+            setLocationSheetOpen(false);
+            setLocationSheetView("list");
+          }}
+          title={locationSheetView === "add" ? t("sheet.addLocation") : t("sheet.location")}
+        >
+          <PageTransition pageKey={locationSheetView} direction={locationSheetView === "add" ? "forward" : "back"}>
+            {locationSheetView === "add" ? (
+              <LocationPicker
+                onSubmit={(newProvinceId, newDistrictId) =>
+                  addSavedLocationMutation.mutate({ provinceId: newProvinceId, districtId: newDistrictId })
+                }
+                onBack={() => setLocationSheetView("list")}
+              />
+            ) : (
+              <SavedLocationsList
+                activeProvinceId={provinceId}
+                activeDistrictId={districtId}
+                onSelectLocation={handleSelectLocation}
+                onAddNew={() => setLocationSheetView("add")}
+                deviceLocation={deviceLocation}
+                deviceLocationStatus={locationStatus}
+                onRequestDeviceLocation={requestLocation}
+              />
+            )}
+          </PageTransition>
+        </Sheet>
+
+        <Sheet
+          open={accountSheetOpen}
+          onClose={closeAccountSheet}
+          title={
+            accountSheetView === "notifications"
+              ? t("notifications.title")
+              : accountSheetView === "history"
+                ? t("history.title")
+                : t("sheet.account")
+          }
+          onBack={accountSheetView === "main" ? undefined : () => setAccountSheetView("main")}
+        >
+          <PageTransition pageKey={accountSheetView} direction={accountSheetView === "main" ? "back" : "forward"}>
+            {accountSheetView === "notifications" && (
+              <NotificationSettings onRequestSignIn={() => signInFrom(closeAccountSheet)} />
+            )}
+            {accountSheetView === "history" && <AlertHistory />}
+            {accountSheetView === "main" && (
+              <AccountPanel
+                onClose={closeAccountSheet}
+                onOpenNotifications={() => setAccountSheetView("notifications")}
+                onOpenHistory={() => setAccountSheetView("history")}
+              />
+            )}
+          </PageTransition>
+        </Sheet>
+
+        <Sheet
+          open={settingsSheetOpen}
+          onClose={closeSettingsSheet}
+          title={settingsSheetView === "notifications" ? t("notifications.title") : t("sheet.settings")}
+          onBack={settingsSheetView === "notifications" ? () => setSettingsSheetView("main") : undefined}
+        >
+          <PageTransition pageKey={settingsSheetView} direction={settingsSheetView === "main" ? "back" : "forward"}>
+            {settingsSheetView === "notifications" ? (
+              <NotificationSettings onRequestSignIn={() => signInFrom(closeSettingsSheet)} />
+            ) : (
+              <SettingsPanel onOpenNotifications={() => setSettingsSheetView("notifications")} />
+            )}
+          </PageTransition>
+        </Sheet>
+      </SafeAreaView>
     </ScreenBackground>
   );
 }

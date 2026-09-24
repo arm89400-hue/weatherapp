@@ -15,9 +15,8 @@ export async function listSavedLocations(userId: string) {
   });
 }
 
-/** Idempotent — re-adding the same province/district returns the existing row instead of
- * erroring, since a DB-level unique constraint can't reliably catch this (Postgres treats
- * NULL != NULL, so it wouldn't catch duplicate province-only saves, the common case). */
+// Idempotent — re-adding the same province/district returns the existing row. Can't rely on a
+// DB unique constraint here since Postgres treats NULL != NULL (would miss province-only dupes).
 export async function createSavedLocation(userId: string, input: SavedLocationInput) {
   const districtId = input.districtId ?? null;
 
@@ -33,9 +32,16 @@ export async function createSavedLocation(userId: string, input: SavedLocationIn
   });
 }
 
-/** Scoping the delete to userId in the same query (rather than a separate ownership check)
- * means one user can never delete another's row, and a mismatch just reports "not found"
- * instead of leaking whether the id exists at all. */
+// Alerts are matched per province (a station belongs to a province, not a district), so the
+// switch is per province too: flipping it updates every saved location the user has there.
+// Returns how many rows changed — 0 means the user has nothing saved in that province.
+export async function setProvinceNotify(userId: string, provinceId: string, notify: boolean) {
+  const result = await prisma.savedLocation.updateMany({ where: { userId, provinceId }, data: { notify } });
+  return result.count;
+}
+
+// Scoping to userId in the query itself (not a separate ownership check) means a mismatch just
+// reports "not found" instead of leaking whether the id exists.
 export async function deleteSavedLocation(userId: string, id: string) {
   const result = await prisma.savedLocation.deleteMany({ where: { id, userId } });
   return result.count > 0;

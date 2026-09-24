@@ -13,9 +13,8 @@ type Props = {
   onBack: () => void;
 };
 
-/** The "add a new saved location" sub-flow — a province+district picker that stages a
- * selection and only commits it via onSubmit, rather than changing the active dashboard
- * location directly (tapping a card in SavedLocationsList does that instead). */
+// The "add a new saved location" sub-flow — stages a selection and only commits it via
+// onSubmit, rather than changing the active dashboard location directly.
 export function LocationPicker({ onSubmit, onBack }: Props) {
   const { language } = useSettings();
   const { t } = useTranslation();

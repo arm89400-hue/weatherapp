@@ -22,8 +22,8 @@ type Props = {
   onRequestDeviceLocation: () => void;
 };
 
-/** Default content of the location Sheet: device location pinned first, then the signed-in
- * user's saved locations, each with a live weather preview fetched in one batched request. */
+// Default content of the location Sheet: device location pinned first, then saved locations,
+// each with a live weather preview fetched in one batched request.
 export function SavedLocationsList({
   activeProvinceId,
   activeDistrictId,
@@ -56,8 +56,7 @@ export function SavedLocationsList({
     return targets;
   }, [deviceLocation, savedLocations]);
 
-  // Derived from the actual locations (not just "sheet is open") so this naturally cache-hits
-  // on reopen with no changes, and naturally refetches when a location is added/removed.
+  // Keyed off the actual locations so this cache-hits on reopen and refetches on add/remove.
   const locationsKey = weatherTargets.map((l) => `${l.provinceId}:${l.districtId ?? ""}`).join(",");
 
   const { data: batchWeather = [] } = useQuery({
@@ -75,9 +74,7 @@ export function SavedLocationsList({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["savedLocations"] }),
   });
 
-  const deviceWeather = deviceLocation
-    ? weatherFor(deviceLocation.provinceId, deviceLocation.districtId)
-    : undefined;
+  const deviceWeather = deviceLocation ? weatherFor(deviceLocation.provinceId, deviceLocation.districtId) : undefined;
 
   return (
     <View className="gap-3">
@@ -136,6 +133,7 @@ export function SavedLocationsList({
               minTemp={weather?.minTemp}
               maxTemp={weather?.maxTemp}
               loading={!weather}
+              alertsOffLabel={loc.notify ? undefined : t("savedLocations.alertsOff")}
               onPress={() => onSelectLocation(loc.provinceId, loc.districtId)}
               onDelete={() => deleteMutation.mutate(loc.id)}
             />

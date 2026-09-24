@@ -1,9 +1,12 @@
 import { Text, View } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import type { CurrentWeatherResponse, WeatherForecast } from "../api/weather";
 import { useSettings } from "../context/SettingsContext";
 import { useTranslation } from "../i18n/useTranslation";
+import { DURATION, EASE_OUT } from "../lib/motion";
 import { formatTemp } from "../lib/temperature";
 import { conditionToIcon } from "./conditionIcon";
+import { Pulse } from "./Motion";
 
 type Props = {
   data: CurrentWeatherResponse | undefined;
@@ -20,7 +23,9 @@ export function WeatherHero({ data, todayForecast, isLoading }: Props) {
   if (isLoading) {
     return (
       <View className="items-center px-5 pb-6 pt-10">
-        <View className="h-24 w-40 rounded-2xl bg-white/10" />
+        <Pulse>
+          <View className="h-24 w-40 rounded-2xl bg-white/10" />
+        </Pulse>
       </View>
     );
   }
@@ -43,30 +48,28 @@ export function WeatherHero({ data, todayForecast, isLoading }: Props) {
     data?.wind?.scale != null ? `scale ${data.wind.scale}` : null,
   ].filter(Boolean);
 
+  // Fades in each time real data replaces the loading placeholder (first load, or switching
+  // location), so the swap doesn't read as a hard cut.
   return (
-    <View className="px-5 pb-6 pt-8">
-      <View className="flex-row items-center justify-center gap-3">
-        {/* conditionToIcon always returns one of a fixed set of already-defined icon
-         * components, never a genuinely new one — react-hooks/static-components can't tell
-         * that apart from actually creating a component during render, so this is a known
-         * false positive for the "pick an icon by condition string" pattern. */}
-        {/* eslint-disable-next-line react-hooks/static-components */}
-        <Icon size={48} color="rgba(255,255,255,0.9)" />
-        <Text className="text-8xl font-light text-white">{formatTemp(reading.temperature, unit)}</Text>
-      </View>
+    <Animated.View entering={FadeIn.duration(DURATION.slow).easing(EASE_OUT)}>
+      <View className="px-5 pb-6 pt-8">
+        <View className="flex-row items-center justify-center gap-3">
+          {/* conditionToIcon picks from a fixed set of existing icons — known false positive for
+            react-hooks/static-components. */}
+          {/* eslint-disable-next-line react-hooks/static-components */}
+          <Icon size={48} color="rgba(255,255,255,0.9)" />
+          <Text className="text-8xl font-light text-white">{formatTemp(reading.temperature, unit)}</Text>
+        </View>
 
-      <Text className="mt-3 text-center text-base font-medium text-white">
-        {translateCondition(reading.condition)}
-        {minMax && <Text className="text-white/80"> {minMax}</Text>}
-      </Text>
-
-      {(reading.feelsLike != null || windParts.length > 0) && (
-        <Text className="mt-1 text-center text-sm text-white/60">
-          {reading.feelsLike != null && t("hero.feelsLike", { temp: formatTemp(reading.feelsLike, unit) })}
-          {reading.feelsLike != null && windParts.length > 0 && "  "}
-          {windParts.join(", ")}
+        <Text className="mt-3 text-center text-2xl font-medium text-white">
+          {translateCondition(reading.condition)}
+          {minMax && <Text className="text-xl text-white/80"> {minMax}</Text>}
         </Text>
-      )}
-    </View>
+
+        {windParts.length > 0 && (
+          <Text className="mt-1.5 text-center text-sm text-white/60">{windParts.join(", ")}</Text>
+        )}
+      </View>
+    </Animated.View>
   );
 }

@@ -1,10 +1,8 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
-// Native apps have no browser cookie jar, so unlike the old web app there's no httpOnly
-// refresh cookie — the refresh token travels in the request/response body instead and is
-// persisted here via SecureStore. EXPO_PUBLIC_API_URL must point at the backend's LAN IP (or a
-// tunnel) since there's no same-origin nginx proxy to fall back to on a physical device.
+// No cookie jar on native, so the refresh token travels in the body and gets persisted via
+// SecureStore instead. EXPO_PUBLIC_API_URL needs to point at the backend's LAN IP (or a tunnel).
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
 export const REFRESH_TOKEN_KEY = "auth.refreshToken";
 
@@ -65,9 +63,8 @@ export async function refreshAccessToken(): Promise<{ accessToken: string; user:
 
   const res = await axios.post(`${API_URL}/api/auth/refresh`, { refreshToken });
 
-  // The backend's refreshSession() revokes the old refresh token and issues a new one on every
-  // single call — the rotated token MUST be re-persisted here, or the very next refresh attempt
-  // fails outright (old token already revoked, new one never saved).
+  // refreshSession() rotates the refresh token on every call, so it must be re-persisted here or
+  // the next refresh fails (old token already revoked, new one never saved).
   await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, res.data.refreshToken);
   setAccessToken(res.data.accessToken);
   onTokenRefreshed?.(res.data.accessToken);

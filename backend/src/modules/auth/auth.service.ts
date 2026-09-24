@@ -13,7 +13,7 @@ export class AuthError extends Error {
   }
 }
 
-type SessionUser = { id: string; email: string; role: string; favoriteProvinceId: string | null };
+type SessionUser = { id: string; email: string; role: string };
 
 export async function registerUser(email: string, password: string, name: string) {
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -85,7 +85,6 @@ async function issueTokens(user: SessionUser) {
       id: user.id,
       email: user.email,
       role: user.role,
-      favoriteProvinceId: user.favoriteProvinceId,
     },
   };
 }

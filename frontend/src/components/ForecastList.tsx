@@ -1,15 +1,16 @@
 import { CalendarDays } from "lucide-react-native";
 import { Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import type { WeatherForecast } from "../api/weather";
 import { useSettings } from "../context/SettingsContext";
 import { useTranslation } from "../i18n/useTranslation";
+import { enterUp } from "../lib/motion";
 import { formatTemp } from "../lib/temperature";
 import { conditionToIcon } from "./conditionIcon";
 import { GlassCard } from "./GlassCard";
 
-// Compares by Bangkok calendar date, not array position — the backend already scopes the
-// query to "today onward" in Bangkok time, but trusting index 0 here would silently mislabel
-// a day if that ever drifts (as it did before the backend timezone fix).
+// Compares by Bangkok calendar date rather than trusting index 0 — bit us once before the
+// backend timezone fix.
 function isSameBangkokDay(a: Date, b: Date) {
   const fmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
   return fmt(a) === fmt(b);
@@ -43,24 +44,26 @@ export function ForecastList({ forecasts }: { forecasts: WeatherForecast[] }) {
         {forecasts.map((f, index) => {
           const Icon = conditionToIcon(f.condition);
           return (
-            <View
-              key={f.id}
-              className={`flex-row items-center justify-between py-3 ${index > 0 ? "border-t border-white/10" : ""}`}
-            >
-              <Text className="w-20 text-sm font-medium text-white">
-                {formatDay(f.forecastDate, dateLocale, t("forecast.today"))}
-              </Text>
-              <View className="flex-1 items-center">
-                <Icon size={24} color="rgba(255,255,255,0.9)" />
-                {f.rainChance != null && (
-                  <Text className="mt-0.5 text-xs text-sky-300">{Math.round(f.rainChance)}%</Text>
-                )}
+            // Rows cascade in just after the card itself (FadeInView in DashboardScreen) appears.
+            <Animated.View key={f.id} entering={enterUp(index, 180)}>
+              <View
+                className={`flex-row items-center justify-between py-3 ${index > 0 ? "border-t border-white/10" : ""}`}
+              >
+                <Text className="w-20 text-sm font-medium text-white">
+                  {formatDay(f.forecastDate, dateLocale, t("forecast.today"))}
+                </Text>
+                <View className="flex-1 items-center">
+                  <Icon size={24} color="rgba(255,255,255,0.9)" />
+                  {f.rainChance != null && (
+                    <Text className="mt-0.5 text-xs text-sky-300">{Math.round(f.rainChance)}%</Text>
+                  )}
+                </View>
+                <Text className="w-28 text-center text-sm text-white/80">{translateCondition(f.condition)}</Text>
+                <Text className="w-20 text-right text-sm text-white">
+                  {formatTemp(f.minTemp, unit)} / {formatTemp(f.maxTemp, unit)}
+                </Text>
               </View>
-              <Text className="w-28 text-center text-sm text-white/80">{translateCondition(f.condition)}</Text>
-              <Text className="w-20 text-right text-sm text-white">
-                {formatTemp(f.minTemp, unit)} / {formatTemp(f.maxTemp, unit)}
-              </Text>
-            </View>
+            </Animated.View>
           );
         })}
       </View>

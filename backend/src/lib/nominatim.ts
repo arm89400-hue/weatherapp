@@ -1,6 +1,5 @@
-/** Thin wrapper over OpenStreetMap Nominatim's reverse-geocoding endpoint — used only for
- * on-demand, single-point lookups (one call per "use my location" click), never bulk, so it
- * stays within Nominatim's public-usage policy. */
+// Only used for on-demand single-point lookups (one call per "use my location" click), never
+// bulk — stays within Nominatim's public-usage policy.
 export type NominatimAddress = Record<string, string>;
 
 export async function reverseGeocode(lat: number, lng: number): Promise<NominatimAddress | null> {

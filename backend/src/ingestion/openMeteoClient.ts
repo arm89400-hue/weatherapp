@@ -1,10 +1,6 @@
-/**
- * Open-Meteo (https://open-meteo.com) — free, no-API-key weather API with global coverage.
- * Used as the live data source today since it needs no registration, while TMD (tmdClient.ts)
- * stays wired up as the originally-intended source for whenever a TMD key is available —
- * both write into the same Station/WeatherReading/WeatherForecast tables, so the rest of the
- * app (API, WebSocket push, frontend) doesn't care which one produced the data.
- */
+// Open-Meteo (https://open-meteo.com) — free, no-API-key weather API, used as the live data
+// source today. TMD (tmdClient.ts) stays wired up for whenever a TMD key is available; both
+// write into the same tables so the rest of the app doesn't care which one produced the data.
 
 const BASE_URL = "https://api.open-meteo.com/v1/forecast";
 const BANGKOK_OFFSET = "+07:00"; // Thailand doesn't observe DST, so this is always correct.
@@ -60,9 +56,8 @@ type RawResponse = {
   daily?: { time: string[] } & Record<string, number[]>;
 };
 
-/** Open-Meteo accepts comma-separated lat/lon lists and returns one result per location, in
- * the same order — far more efficient than one request per province. Callers should chunk to
- * a reasonable batch size to keep URLs from growing unwieldy. */
+// Accepts comma-separated lat/lon lists, returns one result per location in the same order.
+// Callers should chunk to a reasonable batch size to keep URLs from growing unwieldy.
 export async function fetchOpenMeteoBatch(locations: OpenMeteoLocation[]): Promise<OpenMeteoResult[]> {
   if (locations.length === 0) return [];
 
@@ -129,8 +124,7 @@ function numberOrUndefined(value: unknown): number | undefined {
   return Number.isNaN(n) ? undefined : n;
 }
 
-/** WMO weather codes (shared standard, used by Open-Meteo) mapped to short condition text —
- * chosen to hit the keyword matching in frontend/src/components/conditionIcon.tsx. */
+// WMO weather codes mapped to short condition text, chosen to match frontend/src/components/conditionIcon.tsx.
 export function wmoToCondition(code?: number): string | undefined {
   if (code === undefined) return undefined;
   if (code === 0) return "Clear";

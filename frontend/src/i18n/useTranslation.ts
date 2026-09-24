@@ -1,9 +1,8 @@
 import { useSettings } from "../context/SettingsContext";
 import { translations, type TranslationKey } from "./translations";
 
-// Maps the backend's exact condition strings (see backend/src/ingestion/openMeteoClient.ts's
-// wmoToCondition) to a translation key. Falls back to the raw string for anything unrecognized —
-// TMD's free-text condition wording (once wired in) won't match this list.
+// Maps the backend's condition strings (see wmoToCondition in openMeteoClient.ts) to a
+// translation key, falling back to the raw string for anything unrecognized.
 const CONDITION_KEY_MAP: Record<string, TranslationKey> = {
   Clear: "condition.clear",
   "Partly Cloudy": "condition.partlyCloudy",

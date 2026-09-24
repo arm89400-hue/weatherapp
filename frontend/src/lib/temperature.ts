@@ -10,7 +10,3 @@ export function formatTemp(celsius: number | null | undefined, unit: Temperature
   if (celsius == null) return "—";
   return `${Math.round(convertTemp(celsius, unit))}°`;
 }
-
-export function unitSuffix(unit: TemperatureUnit): string {
-  return unit === "F" ? "°F" : "°C";
-}

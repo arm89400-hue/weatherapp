@@ -17,18 +17,15 @@ type Props<T extends string = string> = {
   options: SelectSheetOption<T>[];
   value: T | null;
   onChange: (value: T | null) => void;
-  /** Adds a leading row that commits `null` — replaces LocationPicker's "All districts" /
-   * AccountPanel's "Not set" entries from the old web `<select>`'s empty `<option>`. */
+  /** Adds a leading row that commits `null` (e.g. LocationPicker's "All districts"). */
   nullable?: boolean;
   nullLabel?: string;
   filterable?: boolean;
 };
 
-/** Replaces every native `<select>` from the old web app — RN has no equivalent, and a plain
- * scrolling list isn't free at 77+ items (Thailand's provinces) the way an OS `<select>` was,
- * so this uses a virtualized FlatList with an optional text filter. Renders its own top-level
- * Modal (not nested inside `Sheet`) so it can be triggered from a row inside an already-open
- * Sheet — stacked RN Modals render fine on top of one another. */
+// Virtualized FlatList with an optional filter, since a plain list isn't free at 77+ items
+// (Thailand's provinces). Renders its own top-level Modal rather than nesting inside `Sheet` so
+// it can be triggered from a row inside an already-open Sheet — stacked Modals render fine.
 export function SelectSheet<T extends string = string>({
   open,
   onClose,
@@ -58,8 +55,16 @@ export function SelectSheet<T extends string = string>({
   }
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <ModalBackdrop onPress={onClose}>
+    <Modal
+      visible={open}
+      transparent
+      animationType="slide"
+      // No-op rather than onClose: the X button below is the only way to close this sheet, so
+      // Android's hardware back button doesn't dismiss it out from under an in-progress pick.
+      onRequestClose={() => {}}
+      statusBarTranslucent
+    >
+      <ModalBackdrop>
         <GlassCard className="w-full rounded-t-3xl p-5" style={{ maxHeight: "80%", paddingBottom: insets.bottom + 24 }}>
           <View className="mb-3 flex-row items-center justify-between">
             <Text className="text-base font-semibold text-white">{title}</Text>

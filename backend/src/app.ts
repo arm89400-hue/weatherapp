@@ -12,6 +12,8 @@ import { stationsRouter } from "./modules/stations/stations.routes.js";
 import { pushRouter } from "./modules/push/push.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
 import { savedLocationsRouter } from "./modules/savedLocations/savedLocations.routes.js";
+import { alertPreferencesRouter } from "./modules/alertPreferences/alertPreferences.routes.js";
+import { alertHistoryRouter } from "./modules/alertHistory/alertHistory.routes.js";
 
 export function createApp() {
   const app = express();
@@ -23,9 +25,8 @@ export function createApp() {
 
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-  // Weather/geo data is public — device-location weather is the app's landing experience,
-  // shown before any login. push/users routes are authGuard-protected per-route (see those
-  // modules) since they're inherently account-specific (favorite location, push subscriptions).
+  // Weather/geo data is public (it's the pre-login landing experience); push/users routes
+  // guard themselves per-route since they're account-specific.
   app.use("/api/auth", authRouter);
   app.use("/api/geo", geoRouter);
   app.use("/api/stations", stationsRouter);
@@ -33,6 +34,8 @@ export function createApp() {
   app.use("/api/push", pushRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/saved-locations", savedLocationsRouter);
+  app.use("/api/alert-preferences", alertPreferencesRouter);
+  app.use("/api/alert-history", alertHistoryRouter);
 
   app.use(errorHandler);
 

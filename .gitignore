@@ -7,3 +7,16 @@ build/
 .DS_Store
 backend/generated/
 frontend/dist/
+
+# Firebase service-account private keys (uploaded to EAS, never committed)
+*firebase-adminsdk*.json
+
+# Local database backups (contain user data)
+backups/
+
+# Expo local cache
+.expo/
+
+# Firebase Android config: kept local because this repo is public (EAS cloud builds would need it
+# as an EAS file env var instead)
+frontend/google-services.json

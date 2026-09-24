@@ -26,12 +26,9 @@ function detectDefaultLanguage(): Language {
   return Localization.getLocales()[0]?.languageCode === "th" ? "th" : "en";
 }
 
-// All three settings work without an account — they're stored on-device only, never sent to the
-// backend, so they apply instantly with no login (per product decision: only the severe-weather
-// alert subscription in AccountPanel requires being signed in). Unlike the old web app's
-// synchronous localStorage, AsyncStorage is async — state starts at a sane default and is
-// replaced once the stored value loads; writes are held back until that initial load finishes
-// so they can't clobber a stored value with the default before it's been read.
+// Stored on-device only, no account needed. AsyncStorage is async, so state starts at a default
+// and gets replaced once loaded; writes wait for `hydrated` so they can't clobber a stored value
+// with the default before it's been read.
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [unit, setUnitState] = useState<TemperatureUnit>("C");
   const [language, setLanguageState] = useState<Language>(detectDefaultLanguage);

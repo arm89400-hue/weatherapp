@@ -1,30 +1,12 @@
 import { prisma } from "../../lib/prisma.js";
+import { startOfTodayBangkok } from "../../lib/bangkokTime.js";
 import { getSunTimes } from "../../lib/sun.js";
 import { beaufortScale, windDirectionLabel } from "../../lib/weatherMath.js";
 
 type LocationQuery = { provinceId?: string; districtId?: string };
 
-const BANGKOK_UTC_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-/**
- * Forecast rows are stored midnight-anchored in Bangkok time (see ingestion/openMeteoClient.ts
- * and tmdClient.ts), so filtering with `gte: new Date()` (the current instant) would exclude
- * today's row from mid-morning onward — "now" is always later than today's own midnight. Using
- * the start of the current Bangkok calendar day as the lower bound keeps today included all day.
- */
-function startOfTodayBangkok(): Date {
-  const bangkokNow = new Date(Date.now() + BANGKOK_UTC_OFFSET_MS);
-  const y = bangkokNow.getUTCFullYear();
-  const m = bangkokNow.getUTCMonth();
-  const d = bangkokNow.getUTCDate();
-  return new Date(Date.UTC(y, m, d) - BANGKOK_UTC_OFFSET_MS);
-}
-
-/**
- * TMD stations are matched down to province level only (see ingestion/geoMatch.ts), so a
- * district lookup first tries a station tied directly to that district (in case one is ever
- * curated manually) and otherwise falls back to any station in the district's province.
- */
+// TMD stations are matched to province level only (see geoMatch.ts) — try a station tied
+// directly to the district first, then fall back to any station in its province.
 async function resolveStation({ provinceId, districtId }: LocationQuery) {
   if (districtId) {
     const stationForDistrict = await prisma.station.findFirst({
@@ -84,13 +66,9 @@ export async function getForecast(query: LocationQuery) {
 
 type BatchLocationQuery = { provinceId: string; districtId?: string | null };
 
-/**
- * Batched version of resolveStation+getCurrentWeather+getForecast for the saved-locations list
- * preview, bounded at 4 queries regardless of how many locations are requested (no N+1):
- * resolve district-tied stations, resolve province-fallback stations, then one query each for
- * the latest reading and today's forecast per resolved station, using `distinct` + `orderBy`
- * to get "one row per station" instead of a query per station.
- */
+// Batched resolveStation+getCurrentWeather+getForecast for the saved-locations list preview.
+// Bounded at 4 queries total regardless of location count (no N+1) by using `distinct` to get
+// one row per station instead of querying per station.
 export async function getBatchCurrentWeather(locations: BatchLocationQuery[]) {
   const districtIds = [...new Set(locations.map((l) => l.districtId).filter((id): id is string => !!id))];
 
@@ -103,10 +81,8 @@ export async function getBatchCurrentWeather(locations: BatchLocationQuery[]) {
     : [];
   const stationByDistrictId = new Map(districtStations.map((s) => [s.districtId as string, s]));
 
-  // Anything without a district match (no districtId given, or no station tied to it) falls
-  // back to province — each input already carries its own provinceId, so no extra lookup is
-  // needed here (unlike the single-item resolveStation, which looks up the district's parent
-  // province separately).
+  // Falls back to province for anything without a district match; each input already carries
+  // its own provinceId so no extra lookup is needed (unlike the single-item resolveStation).
   const provinceIdsNeeded = [
     ...new Set(
       locations.filter((l) => !l.districtId || !stationByDistrictId.has(l.districtId)).map((l) => l.provinceId)

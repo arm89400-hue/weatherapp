@@ -5,8 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useNetworkType } from "./useNetworkType";
 
-// Unlike the old web app (same-origin, proxied by nginx), a native client has no page origin to
-// fall back to — EXPO_PUBLIC_API_URL must be set to the backend's reachable address.
+// No page origin to fall back to on native — EXPO_PUBLIC_API_URL must point at a reachable address.
 const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type WeatherUpdatedEvent = { provinceId: string; stationId: string; kind: "reading" | "forecast" };
@@ -19,15 +18,15 @@ export function useWeatherSocket(provinceId: string | null) {
   const queryClient = useQueryClient();
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Network type is "unknown" until NetInfo resolves; we fail open (treat as "not cellular")
-  // rather than briefly disabling live updates for everyone on every cold start.
+  // Fail open (treat unresolved network type as "not cellular") rather than briefly disabling
+  // live updates on every cold start.
   const liveUpdatesAllowed = updateOnMobileData || networkType !== "cellular";
 
   useEffect(() => {
     if (!liveUpdatesAllowed) return;
 
-    // Weather updates are public — connect whether or not the visitor is signed in. Passing
-    // the token when present lets it double as an authenticated connection once they log in.
+    // Public data — connect regardless of auth. Passing the token when present just lets this
+    // double as an authenticated connection once signed in.
     const s = io(SOCKET_URL, { auth: accessToken ? { token: accessToken } : {} });
 
     s.on("weather:updated", (event: WeatherUpdatedEvent) => {

@@ -1,7 +1,9 @@
 import { prisma } from "../../lib/prisma.js";
 import { logger } from "../../lib/logger.js";
 import { publishWeatherUpdated } from "../../lib/redis.js";
+import { startOfTomorrowBangkok } from "../../lib/bangkokTime.js";
 import { checkAndSendAlert } from "../weatherAlerts.js";
+import { checkForecastAlert } from "../forecastAlerts.js";
 import { fetchOpenMeteoBatch, wmoToCondition, type OpenMeteoLocation } from "../openMeteoClient.js";
 
 const CHUNK_SIZE = 40;
@@ -12,14 +14,12 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-/**
- * One "virtual" station per province, backed by Open-Meteo instead of a physical TMD station
- * (province coordinates are the ones geocoded in prisma/seed.ts). Writes into the same
- * Station/WeatherReading/WeatherForecast tables the TMD path uses, so the API/WebSocket/
- * frontend layers are unaffected by which source produced the data.
- */
+// One "virtual" station per province, backed by Open-Meteo instead of a physical TMD station.
+// Writes into the same Station/WeatherReading/WeatherForecast tables the TMD path uses, so
+// API/WebSocket/frontend don't care which source produced the data.
 export async function runPullOpenMeteoWeather() {
   const provinces = await prisma.province.findMany();
+  const tomorrow = startOfTomorrowBangkok();
   let readingsWritten = 0;
   let forecastsWritten = 0;
 
@@ -109,6 +109,14 @@ export async function runPullOpenMeteoWeather() {
           },
         });
         forecastsWritten += 1;
+
+        if (day.date.getTime() === tomorrow.getTime()) {
+          await checkForecastAlert(
+            station,
+            { condition: wmoToCondition(day.weatherCode), maxTemp: day.maxTemp, minTemp: day.minTemp, rainChance: day.rainChance },
+            day.date
+          );
+        }
       }
 
       await publishWeatherUpdated({ provinceId: province.id, stationId: station.id, kind: "reading" });

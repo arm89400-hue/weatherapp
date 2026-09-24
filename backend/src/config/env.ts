@@ -14,9 +14,8 @@ const envSchema = z.object({
   TMD_API_UID: z.string().optional(),
   TMD_API_UKEY: z.string().optional(),
   TMD_API_BASE_URL: z.string().default("https://data.tmd.go.th/api"),
-  VAPID_PUBLIC_KEY: z.string().min(1),
-  VAPID_PRIVATE_KEY: z.string().min(1),
-  VAPID_SUBJECT: z.string().default("mailto:admin@example.com"),
+  // Optional — lets Expo verify pushes came from us, but sending works without it.
+  EXPO_ACCESS_TOKEN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -28,10 +27,7 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-// Comma-separated so multiple frontends can share one backend: the web app's own origin
-// (CORS_ORIGIN), plus the pseudo-origins native app shells load from — Capacitor serves local
-// content under https://localhost on Android and capacitor://localhost on iOS, which is
-// genuinely cross-origin from here even though the app calls an absolute backend URL (see
-// frontend/capacitor.config.ts). Used by both the REST CORS middleware and the Socket.IO CORS
-// config so they never drift apart.
+// CORS_ORIGIN plus the pseudo-origins Capacitor's native shell loads local content from
+// (https://localhost on Android, capacitor://localhost on iOS) — shared by REST CORS and
+// Socket.IO CORS so they can't drift apart.
 export const allowedOrigins = [env.CORS_ORIGIN, "https://localhost", "capacitor://localhost"];

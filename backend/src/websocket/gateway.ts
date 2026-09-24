@@ -16,9 +16,8 @@ export function createWebSocketGateway(httpServer: HttpServer) {
   const subClient = createRedisConnection();
   io.adapter(createAdapter(pubClient, subClient));
 
-  // Weather updates are public, so a token is optional — anonymous (not-yet-logged-in)
-  // clients can still subscribe to province rooms. A token that IS supplied must still be
-  // valid, so a stale/expired one doesn't silently look like a fresh anonymous connection.
+  // Token optional (weather updates are public, anonymous clients can subscribe), but if one
+  // IS supplied it must be valid — a stale token shouldn't silently pass as anonymous.
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) return next();
