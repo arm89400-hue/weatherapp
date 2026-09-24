@@ -10,7 +10,7 @@ import Animated, {
   ZoomIn,
 } from "react-native-reanimated";
 import { DURATION, SPRING_SNAPPY } from "../lib/motion";
-import { FadeInView } from "./Motion";
+import { FadeInView, LoadingText } from "./Motion";
 
 // Shared building blocks for the Settings / Account / Notifications sheets: iOS-style grouped
 // lists — a small uppercase caption above one rounded card whose rows are split by hairlines.
@@ -82,6 +82,7 @@ export function SettingsRow({
   icon,
   iconTint,
   label,
+  loading,
   sublabel,
   value,
   badge,
@@ -94,6 +95,8 @@ export function SettingsRow({
   icon?: LucideIcon;
   iconTint?: string;
   label: string;
+  /** Label is an in-progress message ("Sending...") — its trailing dots animate. */
+  loading?: boolean;
   sublabel?: string;
   value?: string;
   /** Unread count shown as a red pill before the chevron. */
@@ -115,11 +118,15 @@ export function SettingsRow({
     >
       {icon && <IconTile icon={icon} tint={destructive ? "#fca5a5" : iconTint} />}
       <View className="flex-1">
-        <Text
-          className={`text-sm font-medium ${destructive ? "text-red-300" : disabled ? "text-white/50" : "text-white"}`}
-        >
-          {label}
-        </Text>
+        {loading ? (
+          <LoadingText text={label} className="text-sm font-medium text-white/50" dotColor="rgba(255,255,255,0.5)" />
+        ) : (
+          <Text
+            className={`text-sm font-medium ${destructive ? "text-red-300" : disabled ? "text-white/50" : "text-white"}`}
+          >
+            {label}
+          </Text>
+        )}
         {sublabel && <Text className="mt-0.5 text-xs leading-4 text-white/50">{sublabel}</Text>}
       </View>
       {trailing ?? (

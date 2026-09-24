@@ -27,6 +27,7 @@ import { usePushSubscription, type PushSubscriptionStatus } from "../hooks/usePu
 import { useTranslation } from "../i18n/useTranslation";
 import type { TranslationKey } from "../i18n/translations";
 import { localizedName } from "../lib/localizedName";
+import { LoadingText } from "./Motion";
 import { SegmentedControl, SettingsRow, SettingsSection, Toggle } from "./SettingsList";
 
 type ConditionKey = "alertHeat" | "alertCold" | "alertRain" | "alertThunderstorm";
@@ -129,7 +130,16 @@ function ProvinceAlertsSection() {
   });
 
   if (isLoading) {
-    return <Text className="px-1 text-xs text-white/40">{t("alerts.loading")}</Text>;
+    return (
+      <View className="px-1">
+        <LoadingText
+          text={t("alerts.loading")}
+          className="text-xs text-white/40"
+          dotColor="rgba(255,255,255,0.4)"
+          dotSize={3}
+        />
+      </View>
+    );
   }
 
   // Only speaks up when there's something to act on — no standing caption.
@@ -201,14 +211,21 @@ function AlertPreferencesSections() {
   }
 
   if (isLoading || !draft) {
-    return <Text className="px-1 text-xs text-white/40">{t("alerts.loading")}</Text>;
+    return (
+      <View className="px-1">
+        <LoadingText
+          text={t("alerts.loading")}
+          className="text-xs text-white/40"
+          dotColor="rgba(255,255,255,0.4)"
+          dotSize={3}
+        />
+      </View>
+    );
   }
 
   const busy = reset.isPending;
   const sensitivity = matchingSensitivity(draft);
-  let statusText = "";
-  if (save.isError || reset.isError) statusText = t("alerts.saveFailed");
-  else if (save.isPending) statusText = t("alerts.saving");
+  const saveFailed = save.isError || reset.isError;
 
   return (
     <>
@@ -254,7 +271,18 @@ function AlertPreferencesSections() {
       </SettingsSection>
 
       <View className="flex-row items-center justify-between px-1">
-        <Text className="flex-1 text-xs text-white/40">{statusText}</Text>
+        <View className="flex-1">
+          {saveFailed ? (
+            <Text className="text-xs text-white/40">{t("alerts.saveFailed")}</Text>
+          ) : save.isPending ? (
+            <LoadingText
+              text={t("alerts.saving")}
+              className="text-xs text-white/40"
+              dotColor="rgba(255,255,255,0.4)"
+              dotSize={3}
+            />
+          ) : null}
+        </View>
         <Pressable onPress={() => reset.mutate()} disabled={busy} hitSlop={6}>
           <Text className="text-xs text-sky-300 disabled:opacity-40">{t("alerts.reset")}</Text>
         </Pressable>
@@ -328,6 +356,7 @@ function SignedInNotificationSettings() {
           <SettingsRow
             icon={BellRing}
             label={testPush.isPending ? t("notifications.testSending") : t("notifications.sendTest")}
+            loading={testPush.isPending}
             disabled={testPush.isPending}
             onPress={() => testPush.mutate()}
             showChevron={false}

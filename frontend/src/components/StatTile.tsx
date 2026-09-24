@@ -3,11 +3,20 @@ import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import { GlassCard } from "./GlassCard";
 
-type Props = { icon: LucideIcon; label: string; value: ReactNode; unit?: string; subtitle?: string };
+type Props = {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+  unit?: string;
+  subtitle?: string;
+  /** Share a row's width with sibling tiles. Leave off for a tile stacked on its own — `flex-1` in a
+   * content-sized column means "start at 0 height", which collapsed the humidity tile under the sun card. */
+  fillRow?: boolean;
+};
 
-export function StatTile({ icon: Icon, label, value, unit, subtitle }: Props) {
+export function StatTile({ icon: Icon, label, value, unit, subtitle, fillRow }: Props) {
   return (
-    <GlassCard className="flex-1 flex-col rounded-3xl p-5">
+    <GlassCard className={`${fillRow ? "flex-1 " : ""}flex-col rounded-3xl p-5`}>
       <View className="flex-row items-center gap-2 opacity-80">
         <Icon size={16} color="white" />
         <Text className="text-sm text-white">{label}</Text>

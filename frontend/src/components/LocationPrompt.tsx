@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import type { LocationStatus } from "../hooks/useDeviceLocationProvince";
 import { useTranslation } from "../i18n/useTranslation";
 import { GlassCard } from "./GlassCard";
+import { LoadingText } from "./Motion";
 
 type Props = {
   status: LocationStatus;
@@ -30,9 +31,19 @@ export function LocationPrompt({ status, onAllow, onDismiss }: Props) {
             disabled={status === "locating"}
             className="flex-1 rounded-xl bg-sky-400/80 py-2 disabled:opacity-60"
           >
-            <Text className="text-center text-sm font-medium text-slate-900">
-              {status === "locating" ? t("locationPrompt.locating") : t("locationPrompt.useMyLocation")}
-            </Text>
+            {status === "locating" ? (
+              <LoadingText
+                center
+                text={t("locationPrompt.locating")}
+                className="text-sm font-medium text-slate-900"
+                dotColor="#0f172a"
+                dotSize={3}
+              />
+            ) : (
+              <Text className="text-center text-sm font-medium text-slate-900">
+                {t("locationPrompt.useMyLocation")}
+              </Text>
+            )}
           </Pressable>
         </View>
       </GlassCard>

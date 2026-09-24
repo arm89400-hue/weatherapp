@@ -5,6 +5,7 @@ import { Text, View } from "react-native";
 import { fetchAlertHistory, markAlertsRead, type AlertKind } from "../api/alertHistory";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../i18n/useTranslation";
+import { LoadingText } from "./Motion";
 import { SettingsSection } from "./SettingsList";
 
 const KIND_STYLE: Record<AlertKind, { icon: LucideIcon; tint: string }> = {
@@ -38,7 +39,16 @@ export function AlertHistory() {
   }, [unread, mutate]);
 
   if (isLoading) {
-    return <Text className="px-1 text-xs text-white/40">{t("history.loading")}</Text>;
+    return (
+      <View className="px-1">
+        <LoadingText
+          text={t("history.loading")}
+          className="text-xs text-white/40"
+          dotColor="rgba(255,255,255,0.4)"
+          dotSize={3}
+        />
+      </View>
+    );
   }
 
   if (isError) {

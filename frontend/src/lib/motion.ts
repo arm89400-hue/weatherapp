@@ -4,7 +4,8 @@ import { Easing, FadeInDown, FadeInLeft, FadeInRight } from "react-native-reanim
 //
 // Rules this follows (Apple HIG "Motion" + Material motion guidance):
 //  - Every animation has a job: feedback on touch, showing a state change, or showing where
-//    you navigated. Nothing loops or moves just for decoration.
+//    you navigated. Nothing moves just for decoration; the only loops are loading indicators
+//    (AppSplash, LoadingDots, Pulse), and they stop the moment the data arrives.
 //  - Short: 150–350ms. Entering content eases *out* (fast start, gentle stop).
 //  - Things the user directly manipulates (switches, segmented pickers, presses) use springs,
 //    so they feel physical and can be interrupted mid-flight.

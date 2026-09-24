@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import type { TemperatureUnit } from "../context/SettingsContext";
 import { formatTemp } from "../lib/temperature";
 import { GlassCard } from "./GlassCard";
-import { PressableScale } from "./Motion";
+import { LoadingDots, PressableScale } from "./Motion";
 
 type Props = {
   title: string;
@@ -55,9 +55,13 @@ export function LocationCard({
               <Trash2 size={16} color="rgba(255,255,255,0.45)" />
             </Pressable>
           )}
-          <Text className="text-3xl font-semibold text-white">
-            {loading ? "···" : formatTemp(temperature ?? null, unit)}
-          </Text>
+          {loading ? (
+            <View style={{ height: 36, justifyContent: "center" }}>
+              <LoadingDots size={6} color="rgba(255,255,255,0.8)" />
+            </View>
+          ) : (
+            <Text className="text-3xl font-semibold text-white">{formatTemp(temperature ?? null, unit)}</Text>
+          )}
         </View>
         <View className="mt-1 flex-row items-center justify-between">
           <Text className="text-xs text-white/60">{loading ? "" : (condition ?? "—")}</Text>

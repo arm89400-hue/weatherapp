@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Pressable, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, Text, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withSpring,
@@ -121,4 +122,83 @@ export function Pulse({ style, children }: { style?: StyleProp<ViewStyle>; child
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
+}
+
+// Loading dots: three dots hop one after another, left → right, on repeat until the parent
+// unmounts them (i.e. the data arrived). Same period for every dot, offset start — that's what
+// makes the wave travel.
+const DOT_HOP_MS = 220;
+const DOT_STAGGER_MS = 140;
+const DOT_REST_MS = 460; // period = 2 × hop + rest = 900ms
+
+function BouncingDot({ index, size, color }: { index: number; size: number; color: string }) {
+  const y = useSharedValue(0);
+
+  useEffect(() => {
+    y.set(
+      withDelay(
+        index * DOT_STAGGER_MS,
+        withRepeat(
+          withSequence(
+            withTiming(-size * 1.3, { duration: DOT_HOP_MS, easing: Easing.out(Easing.quad) }),
+            withTiming(0, { duration: DOT_HOP_MS, easing: Easing.in(Easing.quad) }),
+            withTiming(0, { duration: DOT_REST_MS }),
+          ),
+          -1,
+        ),
+      ),
+    );
+    return () => cancelAnimation(y);
+  }, [index, size, y]);
+
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  return (
+    <Animated.View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }, style]} />
+  );
+}
+
+export function LoadingDots({ size = 4, color = "rgba(255,255,255,0.6)" }: { size?: number; color?: string }) {
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ flexDirection: "row", alignItems: "flex-end", gap: size * 0.7, height: size * 2.6 }}
+    >
+      {[0, 1, 2].map((i) => (
+        <BouncingDot key={i} index={i} size={size} color={color} />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * A loading message whose trailing "..." (as written in translations.ts) is swapped for animated
+ * LoadingDots — e.g. "Saving..." → "Saving" + hopping dots. Screen readers still get the full text.
+ */
+export function LoadingText({
+  text,
+  className = "",
+  dotColor,
+  dotSize,
+  center,
+}: {
+  text: string;
+  className?: string;
+  dotColor?: string;
+  dotSize?: number;
+  center?: boolean;
+}) {
+  const label = text.replace(/\s*(\.{3}|…)$/, "");
+  return (
+    <View
+      accessible
+      accessibilityLabel={text}
+      style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: center ? "center" : "flex-start" }}
+    >
+      <Text className={className}>{label}</Text>
+      <View style={{ marginLeft: 3, marginBottom: (dotSize ?? 4) * 0.9 }}>
+        <LoadingDots size={dotSize} color={dotColor} />
+      </View>
+    </View>
+  );
 }

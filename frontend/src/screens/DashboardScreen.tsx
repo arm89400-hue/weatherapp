@@ -10,6 +10,7 @@ import { createSavedLocation } from "../api/savedLocations";
 import { fetchCurrentWeather, fetchForecast } from "../api/weather";
 import { AccountPanel } from "../components/AccountPanel";
 import { AlertHistory } from "../components/AlertHistory";
+import { AppSplash } from "../components/AppSplash";
 import { ForecastList } from "../components/ForecastList";
 import { GlassCard } from "../components/GlassCard";
 import { LocationPicker } from "../components/LocationPicker";
@@ -33,9 +34,12 @@ import { localizedName } from "../lib/localizedName";
 
 const LAST_PROVINCE_KEY = "weather:lastProvinceId";
 const LAST_DISTRICT_KEY = "weather:lastDistrictId";
+const SPLASH_MAX_MS = 12_000;
 
 export function DashboardScreen() {
   const [hydrated, setHydrated] = useState(false);
+  const [booted, setBooted] = useState(false);
+  const [splashTimedOut, setSplashTimedOut] = useState(false);
   const [provinceId, setProvinceId] = useState<string | null>(null);
   const [districtId, setDistrictId] = useState<string | null>(null);
   const [usedDeviceLocation, setUsedDeviceLocation] = useState(false);
@@ -74,6 +78,12 @@ export function DashboardScreen() {
     })();
   }, []);
 
+  // Safety net: never hold the opening screen longer than this, whatever the network is doing.
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashTimedOut(true), SPLASH_MAX_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   const { status: locationStatus, request: requestLocation } = useDeviceLocationProvince((location) => {
     setDeviceLocation(location);
     setProvinceId(location.provinceId);
@@ -87,7 +97,10 @@ export function DashboardScreen() {
     setLocationPromptAnswered(true);
   }
 
-  const { data: provinces = [] } = useQuery({ queryKey: ["geo", "provinces"], queryFn: fetchProvinces });
+  const { data: provinces = [], isError: provincesFailed } = useQuery({
+    queryKey: ["geo", "provinces"],
+    queryFn: fetchProvinces,
+  });
   const { data: districts = [] } = useQuery({
     queryKey: ["geo", "districts", provinceId],
     queryFn: () => fetchDistricts(provinceId as string),
@@ -159,10 +172,20 @@ export function DashboardScreen() {
     router.push("/login");
   }
 
-  if (!hydrated) {
+  // Opening screen (AppSplash) stays up until there's something real to show: settings read, and
+  // either the first weather answer (success or error), the "use your location?" question, or a
+  // failed province list. Latched, so switching location later never brings it back.
+  const readyToShow =
+    hydrated &&
+    ((!provinceId && !locationPromptAnswered) || currentQuery.isFetched || provincesFailed || splashTimedOut);
+  if (readyToShow && !booted) setBooted(true);
+
+  if (!booted) {
     return (
       <ScreenBackground>
-        <SafeAreaView className="flex-1" />
+        <SafeAreaView className="flex-1">
+          <AppSplash />
+        </SafeAreaView>
       </ScreenBackground>
     );
   }
@@ -268,6 +291,7 @@ export function DashboardScreen() {
                       <StatTile
                         icon={Droplets}
                         label={t("stat.precipitation")}
+                        fillRow
                         value={reading?.rainfallMm != null ? reading.rainfallMm.toFixed(1) : t("common.dash")}
                         unit="mm"
                         subtitle={t("stat.precipitationSubtitle")}
@@ -275,6 +299,7 @@ export function DashboardScreen() {
                       <StatTile
                         icon={WindIcon}
                         label={t("stat.wind")}
+                        fillRow
                         value={reading?.windSpeed != null ? Math.round(reading.windSpeed) : t("common.dash")}
                         unit="km/h"
                         subtitle={
