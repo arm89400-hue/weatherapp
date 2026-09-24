@@ -1,0 +1,2 @@
+# Postgres init snapshot: keep byte-for-byte (LF). CRLF would corrupt COPY data rows.
+db/init/*.sql -text

@@ -24,8 +24,24 @@ cp .env.example .env
 # comment in .env.example)
 
 docker compose up -d --build            # postgres, redis, backend, worker
-docker compose exec backend npx tsx prisma/seed.ts   # loads all 77 provinces + districts
 ```
+
+**Data on a new PC:** the first time Postgres starts with an empty volume it loads
+`db/init/01-weather-snapshot.sql` automatically: all 77 provinces, 930 districts, stations,
+and a snapshot of weather readings and forecasts, so the app shows data immediately. There's no
+seed step. It holds **no personal data**, because this repo is public.
+
+Moving accounts, saved locations and alert history between PCs (these are never committed):
+
+```bash
+npm run db:backup                          # old PC: writes backups/weather-<date>.sql (private!)
+# copy that file to the new PC's backups/ folder yourself (USB, Drive, …)
+npm run db:restore -- backups/weather-<date>.sql   # new PC: replaces its database with it
+npm run db:snapshot                        # refresh the committed public weather snapshot
+```
+
+Already have an old, empty database from before this existed? `docker compose down -v` (wipes
+this PC's database) and then `docker compose up -d` loads the snapshot.
 
 - Backend health check: http://localhost:4000/health
 - Frontend: `cd frontend && cp .env.example .env` (set `EXPO_PUBLIC_API_URL` to this

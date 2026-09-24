@@ -10,6 +10,9 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Loaded automatically ONLY when postgres_data is empty (a fresh PC) — gives the app the
+      # weather data from db/init/ right away. Refresh with `npm run db:snapshot`.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weather}"]
       interval: 5s

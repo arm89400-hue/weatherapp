@@ -13,6 +13,9 @@
     "build": "npm run build --workspace backend && npm run build --workspace frontend",
     "prisma:generate": "npm run prisma:generate --workspace backend",
     "prisma:migrate": "npm run prisma:migrate --workspace backend",
-    "prisma:seed": "npm run prisma:seed --workspace backend"
+    "prisma:seed": "npm run prisma:seed --workspace backend",
+    "db:snapshot": "node scripts/db.mjs snapshot",
+    "db:backup": "node scripts/db.mjs backup",
+    "db:restore": "node scripts/db.mjs restore"
   }
 }
